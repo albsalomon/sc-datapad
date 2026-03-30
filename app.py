@@ -321,8 +321,10 @@ def static_files(filename):
 
 # ─── Arranque ─────────────────────────────────────────────────────────────────
 
+# Inicializar DB al importar el módulo (necesario para gunicorn)
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_ENV", "production") != "production"
     print(f"🚀 SC.DATAPAD corriendo en http://localhost:{port}")
