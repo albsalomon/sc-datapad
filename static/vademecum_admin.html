@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>VetDose — Gestión de Vademécum</title>
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Configuración: cambia SUPABASE_URL y SUPABASE_ANON_KEY -->
+  <script src="../supabase-config.js"></script>
+  <style>
+    :root {
+      --blue:#2563eb; --blue-d:#1d4ed8; --blue-l:#dbeafe; --blue-50:#eff6ff;
+      --green:#10b981; --green-d:#059669; --green-l:#d1fae5; --green-50:#ecfdf5;
+      --amber:#f59e0b; --amber-l:#fef3c7;
+      --red:#dc2626; --red-l:#fee2e2;
+      --slate:#f1f5f9; --white:#fff;
+      --g100:#f3f4f6; --g200:#e5e7eb; --g300:#d1d5db;
+      --g400:#9ca3af; --g500:#6b7280; --g600:#4b5563; --g700:#374151; --g800:#1f2937;
+      --radius:14px; --shadow:0 2px 8px rgba(0,0,0,.07);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;overflow:hidden}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+         background:var(--slate);color:var(--g800);display:flex;flex-direction:column}
+
+    /* ─── TOPBAR ─── */
+    .topbar{
+      background:var(--white);border-bottom:1px solid var(--g200);
+      padding:12px 20px;display:flex;align-items:center;gap:12px;
+      flex-shrink:0;z-index:10;
+    }
+    .logo-box{
+      width:38px;height:38px;background:var(--blue);border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:13px;color:#fff;letter-spacing:-.02em;
+      box-shadow:0 3px 8px rgba(37,99,235,.3);flex-shrink:0;
+    }
+    .topbar-title{font-size:16px;font-weight:800;color:var(--g800);line-height:1}
+    .topbar-sub{font-size:11px;color:var(--g400);margin-top:1px}
+    .topbar-spacer{flex:1}
+
+    /* ─── TOOLBAR ─── */
+    .toolbar{
+      background:var(--white);border-bottom:1px solid var(--g200);
+      padding:10px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      flex-shrink:0;
+    }
+    .search-wrap{
+      position:relative;flex:1;min-width:200px;max-width:420px;
+    }
+    .search-wrap svg{
+      position:absolute;left:10px;top:50%;transform:translateY(-50%);
+      color:var(--g400);pointer-events:none;
+    }
+    .search-input{
+      width:100%;padding:8px 10px 8px 34px;border:1.5px solid var(--g200);
+      border-radius:10px;font-size:14px;background:var(--g100);
+      transition:border-color .15s;outline:none;
+    }
+    .search-input:focus{border-color:var(--blue);background:var(--white)}
+    .btn{
+      display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
+      border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+      border:none;transition:background .15s,transform .08s;
+    }
+    .btn:active{transform:scale(.97)}
+    .btn-primary{background:var(--blue);color:#fff}
+    .btn-primary:hover{background:var(--blue-d)}
+    .btn-ghost{background:var(--g100);color:var(--g700);border:1.5px solid var(--g200)}
+    .btn-ghost:hover{background:var(--g200)}
+    .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px}
+    .btn-green{background:var(--green);color:#fff}
+    .btn-green:hover{background:var(--green-d)}
+
+    .stats-bar{
+      display:flex;gap:16px;align-items:center;margin-left:auto;
+    }
+    .stat-pill{
+      font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;
+    }
+    .stat-total{background:var(--blue-l);color:var(--blue-d)}
+    .stat-ready{background:var(--green-l);color:var(--green-d)}
+    .stat-pending{background:var(--g200);color:var(--g600)}
+
+    /* ─── MAIN AREA ─── */
+    .main{flex:1;overflow:hidden;display:flex;position:relative}
+
+    /* ─── TABLE PANEL ─── */
+    .table-panel{flex:1;overflow-y:auto;padding:16px 20px}
+
+    .table-wrap{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow-x:auto}
+    table{width:100%;min-width:900px;border-collapse:collapse;font-size:13px}
+    thead th{
+      background:var(--g100);padding:10px 12px;text-align:left;
+      font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+      color:var(--g500);border-bottom:1px solid var(--g200);white-space:nowrap;
+    }
+    tbody tr{border-bottom:1px solid var(--g100);transition:background .1s}
+    tbody tr:last-child{border-bottom:none}
+    tbody tr:hover{background:var(--g100)}
+    td{padding:10px 12px;vertical-align:middle}
+
+    .status-dot{
+      width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;
+    }
+    .dot-ready{background:var(--green)}
+    .dot-pending{background:var(--g300)}
+
+    .drug-name{font-weight:600;color:var(--g800);line-height:1.3}
+    .drug-pa{font-size:11px;color:var(--g500);margin-top:2px}
+    .tag{
+      display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600;
+    }
+    .tag-ab{background:#fce7f3;color:#be185d}
+    .tag-rx{background:var(--amber-l);color:#92400e}
+    .tag-nrx{background:var(--green-l);color:var(--green-d)}
+
+    .dosis-preview{
+      font-size:12px;padding:4px 8px;border-radius:8px;
+      background:var(--green-50);color:var(--green-d);font-weight:600;
+      display:inline-block;
+    }
+    .dosis-none{color:var(--g400);font-style:italic;font-size:12px}
+
+    .dosis-ref-cell{font-size:11.5px;line-height:1.5}
+    .dosis-ref-row{display:flex;align-items:baseline;gap:4px;white-space:nowrap}
+    .dosis-ref-esp{font-size:10px;opacity:.7;width:14px;flex-shrink:0}
+    .dosis-ref-val{color:var(--blue-d);font-weight:600}
+    .dosis-ref-frec{color:var(--g500);font-size:10px}
+    .dosis-ref-na{color:var(--g300);font-size:12px}
+
+    .ficha-link{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:4px 8px;border-radius:7px;
+      background:var(--blue-l);color:var(--blue-d);
+      font-size:11px;font-weight:600;text-decoration:none;
+      transition:background .15s;
+    }
+    .ficha-link:hover{background:#bfdbfe}
+    .ficha-conc{
+      display:inline-block;margin-top:4px;padding:2px 6px;border-radius:6px;
+      background:var(--amber-l);color:#92400e;font-size:11px;font-weight:600;
+    }
+    .ficha-na{color:var(--g300);font-size:12px}
+
+    /* ─── EMPTY STATE ─── */
+    .empty-state{
+      text-align:center;padding:64px 20px;color:var(--g400);
+    }
+    .empty-state svg{margin:0 auto 16px;display:block;opacity:.4}
+    .empty-state h3{font-size:16px;font-weight:700;color:var(--g600);margin-bottom:6px}
+    .empty-state p{font-size:13px;line-height:1.5}
+
+    /* ─── SIDE PANEL MODAL ─── */
+    .overlay{
+      position:absolute;inset:0;background:rgba(15,23,42,.35);
+      z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;
+    }
+    .overlay.open{opacity:1;pointer-events:all}
+
+    .side-panel{
+      position:absolute;top:0;right:0;bottom:0;width:100%;max-width:480px;
+      background:var(--white);box-shadow:-4px 0 24px rgba(0,0,0,.12);
+      display:flex;flex-direction:column;
+      transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+      z-index:101;
+    }
+    .side-panel.open{transform:translateX(0)}
+
+    .panel-header{
+      padding:16px 20px;border-bottom:1px solid var(--g200);
+      display:flex;align-items:flex-start;gap:12px;flex-shrink:0;
+    }
+    .panel-drug-name{font-size:15px;font-weight:800;color:var(--g800);flex:1;line-height:1.3}
+    .panel-drug-pa{font-size:12px;color:var(--g500);margin-top:2px}
+    .close-btn{
+      width:32px;height:32px;border-radius:8px;background:var(--g100);
+      border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;color:var(--g600);font-size:18px;line-height:1;
+    }
+    .close-btn:hover{background:var(--g200)}
+
+    .panel-body{flex:1;overflow-y:auto;padding:20px}
+
+    .species-section{
+      background:var(--g100);border-radius:12px;padding:14px;margin-bottom:16px;
+    }
+    .species-title{
+      font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:6px;
+    }
+
+    .form-row{margin-bottom:12px}
+    .form-label{
+      display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.08em;color:var(--g500);margin-bottom:5px;
+    }
+    .form-input{
+      width:100%;padding:8px 10px;border:1.5px solid var(--g200);border-radius:9px;
+      font-size:14px;background:var(--white);outline:none;
+      transition:border-color .15s;
+    }
+    .form-input:focus{border-color:var(--blue)}
+    .form-select{
+      width:100%;padding:8px 10px;border:1.5px solid var(--g200);border-radius:9px;
+      font-size:14px;background:var(--white);outline:none;cursor:pointer;
+      appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+      transition:border-color .15s;
+    }
+    .form-select:focus{border-color:var(--blue);outline:none}
+
+    .inline-row{display:flex;gap:8px}
+    .inline-row .form-input,.inline-row .form-select{flex:1}
+
+    .checkbox-row{
+      display:flex;align-items:center;gap:8px;
+      background:var(--blue-50);border-radius:9px;padding:10px 12px;
+      cursor:pointer;user-select:none;
+    }
+    .checkbox-row input[type=checkbox]{
+      width:16px;height:16px;cursor:pointer;accent-color:var(--blue);flex-shrink:0;
+    }
+    .checkbox-row .cb-label{font-size:13px;font-weight:600;color:var(--blue-d);cursor:pointer}
+    .checkbox-row .cb-sub{font-size:11px;color:var(--g500);margin-top:1px}
+
+    .formula-preview{
+      margin-top:8px;padding:8px 12px;background:var(--green-50);border-radius:9px;
+      font-size:12px;color:var(--green-d);font-weight:600;
+      min-height:32px;
+    }
+
+    .panel-footer{
+      padding:14px 20px;border-top:1px solid var(--g200);
+      display:flex;gap:8px;flex-shrink:0;
+    }
+    .btn-save{flex:1}
+    .btn-delete{background:var(--red-l);color:var(--red);border:none}
+    .btn-delete:hover{background:#fca5a5}
+
+    /* ─── SYNC TOAST ─── */
+    .toast{
+      position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+      background:var(--g800);color:#fff;padding:10px 18px;border-radius:12px;
+      font-size:13px;font-weight:600;z-index:999;transition:transform .3s;white-space:nowrap;
+    }
+    .toast.show{transform:translateX(-50%) translateY(0)}
+
+    /* ─── SCROLLBAR ─── */
+    ::-webkit-scrollbar{width:5px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--g300);border-radius:10px}
+
+    /* ─── CONNECTION INDICATOR ─── */
+    .conn-badge{
+      display:inline-flex;align-items:center;gap:6px;
+      font-size:11px;font-weight:600;padding:5px 10px;
+      border-radius:20px;border:1px solid;cursor:default;
+      transition:all .3s;
+    }
+    .conn-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .conn-online{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+    .conn-online .conn-dot{background:#10b981;box-shadow:0 0 0 2px #a7f3d0}
+    .conn-offline{background:var(--g100);border-color:var(--g300);color:var(--g500)}
+    .conn-offline .conn-dot{background:var(--g400)}
+    .conn-local{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+    .conn-local .conn-dot{background:var(--amber)}
+    .sync-progress{
+      font-size:11px;color:var(--blue);font-weight:600;
+      display:none;align-items:center;gap:6px;
+    }
+    .sync-progress.show{display:inline-flex}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinner{
+      width:12px;height:12px;border:2px solid var(--blue-l);
+      border-top-color:var(--blue);border-radius:50%;
+      animation:spin .6s linear infinite;display:inline-block;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo-box">Vd</div>
+  <div>
+    <div class="topbar-title">VetDose</div>
+    <div class="topbar-sub">Gestión de Vademécum</div>
+  </div>
+  <div class="topbar-spacer"></div>
+  <span id="sync-progress" class="sync-progress">
+    <span class="spinner"></span><span id="sync-msg">Sincronizando…</span>
+  </span>
+  <span id="conn-badge" class="conn-badge conn-offline" title="Estado de conexión a Supabase">
+    <span class="conn-dot"></span>
+    <span id="conn-label">Cargando…</span>
+  </span>
+  <button class="btn btn-ghost btn-sm" onclick="location.href='vetdose.html'">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+    Calculadora
+  </button>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+    </svg>
+    <input id="search" class="search-input" type="text" placeholder="Buscar fármaco, principio activo…"
+           oninput="onSearch(this.value)" autocomplete="off">
+  </div>
+
+  <div class="stats-bar">
+    <span class="stat-pill stat-total" id="stat-total">0 total</span>
+    <span class="stat-pill stat-ready" id="stat-ready">0 listos</span>
+    <span class="stat-pill stat-pending" id="stat-pending">0 pendientes</span>
+  </div>
+
+  <button class="btn btn-primary btn-sm" onclick="syncAEMPS()" id="btn-sync">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+    </svg>
+    Sincronizar AEMPS
+  </button>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="main">
+
+  <!-- TABLE PANEL -->
+  <div class="table-panel" id="table-panel">
+    <div class="table-wrap" id="table-wrap">
+      <div class="empty-state" id="empty-state">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="2"/>
+          <path d="M9 12h6M9 16h4"/>
+        </svg>
+        <h3>Sin datos de vademécum</h3>
+        <p>Primero ejecuta la sincronización desde<br>
+        <a href="sync_vademecum.html" style="color:var(--blue);font-weight:600">sync_vademecum.html</a>
+        para cargar los medicamentos de la AEMPS.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY -->
+  <div class="overlay" id="overlay" onclick="closePanel()"></div>
+
+  <!-- SIDE PANEL -->
+  <div class="side-panel" id="side-panel">
+    <div class="panel-header">
+      <div style="flex:1">
+        <div class="panel-drug-name" id="panel-name">—</div>
+        <div class="panel-drug-pa" id="panel-pa">—</div>
+      </div>
+      <button class="close-btn" onclick="closePanel()">✕</button>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- PERRO -->
+      <div class="species-section">
+        <div class="species-title">🐕 Perro</div>
+
+        <div class="form-row">
+          <label class="form-label">Dosis clínica</label>
+          <div class="inline-row">
+            <input id="p-dosis" class="form-input" type="number" min="0" step="0.01" placeholder="ej: 10"
+                   oninput="updateFormula('p')">
+            <select id="p-unidad" class="form-select" onchange="updateFormula('p')">
+              <option value="mg/kg">mg/kg</option>
+              <option value="mcg/kg">mcg/kg</option>
+              <option value="ml/kg">ml/kg</option>
+              <option value="UI/kg">UI/kg</option>
+              <option value="mg/animal">mg/animal</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Concentración del fármaco</label>
+          <div class="inline-row">
+            <input id="p-conc" class="form-input" type="number" min="0" step="0.01" placeholder="ej: 100"
+                   oninput="updateFormula('p')">
+            <select id="p-conc-unit" class="form-select" onchange="updateFormula('p')">
+              <option value="mg/ml">mg/ml</option>
+              <option value="mcg/ml">mcg/ml</option>
+              <option value="UI/ml">UI/ml</option>
+              <option value="mg/comp">mg/comp</option>
+              <option value="mg/cápsula">mg/cápsula</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="formula-preview" id="p-formula">Introduce la dosis y concentración para calcular.</div>
+
+        <div class="form-row" style="margin-top:10px;margin-bottom:0">
+          <label class="checkbox-row">
+            <input type="checkbox" id="p-priorizar">
+            <div>
+              <div class="cb-label">Priorizar mi dosis</div>
+              <div class="cb-sub">Sobreescribe la dosis oficial de la AEMPS en el calculador</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- GATO -->
+      <div class="species-section">
+        <div class="species-title">🐈 Gato</div>
+
+        <div class="form-row">
+          <label class="form-label">Dosis clínica</label>
+          <div class="inline-row">
+            <input id="g-dosis" class="form-input" type="number" min="0" step="0.01" placeholder="ej: 5"
+                   oninput="updateFormula('g')">
+            <select id="g-unidad" class="form-select" onchange="updateFormula('g')">
+              <option value="mg/kg">mg/kg</option>
+              <option value="mcg/kg">mcg/kg</option>
+              <option value="ml/kg">ml/kg</option>
+              <option value="UI/kg">UI/kg</option>
+              <option value="mg/animal">mg/animal</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Concentración del fármaco</label>
+          <div class="inline-row">
+            <input id="g-conc" class="form-input" type="number" min="0" step="0.01" placeholder="ej: 50"
+                   oninput="updateFormula('g')">
+            <select id="g-conc-unit" class="form-select" onchange="updateFormula('g')">
+              <option value="mg/ml">mg/ml</option>
+              <option value="mcg/ml">mcg/ml</option>
+              <option value="UI/ml">UI/ml</option>
+              <option value="mg/comp">mg/comp</option>
+              <option value="mg/cápsula">mg/cápsula</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="formula-preview" id="g-formula">Introduce la dosis y concentración para calcular.</div>
+
+        <div class="form-row" style="margin-top:10px;margin-bottom:0">
+          <label class="checkbox-row">
+            <input type="checkbox" id="g-priorizar">
+            <div>
+              <div class="cb-label">Priorizar mi dosis</div>
+              <div class="cb-sub">Sobreescribe la dosis oficial de la AEMPS en el calculador</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- NOTAS -->
+      <div class="form-row">
+        <label class="form-label">Notas clínicas (opcional)</label>
+        <textarea id="notas" class="form-input" rows="3" placeholder="Observaciones, precauciones, contexto…"
+                  style="resize:vertical;min-height:70px"></textarea>
+      </div>
+
+    </div><!-- /panel-body -->
+
+    <div class="panel-footer">
+      <button class="btn btn-primary btn-save" onclick="saveConfig()">Guardar configuración</button>
+      <button class="btn btn-sm btn-delete" id="btn-delete" onclick="deleteConfig()" style="display:none">Eliminar</button>
+    </div>
+  </div><!-- /side-panel -->
+
+</div><!-- /main -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   DOSIS DE REFERENCIA (base interna VetDose)
+══════════════════════════════════════════════════════════════ */
+const DOSIS_REF = [
+  { keys:['amoxicilina'],           perro:{d:'10–20 mg/kg',f:'c/12h'}, gato:{d:'10–20 mg/kg',f:'c/12h'} },
+  { keys:['meloxicam'],             perro:{d:'0.1–0.2 mg/kg',f:'c/24h'}, gato:{d:'0.05–0.1 mg/kg',f:'c/48h'} },
+  { keys:['omeprazol'],             perro:{d:'0.5–1 mg/kg',f:'c/24h'}, gato:{d:'0.7–1 mg/kg',f:'c/24h'} },
+  { keys:['metronidazol'],          perro:{d:'10–15 mg/kg',f:'c/12h'}, gato:{d:'10–15 mg/kg',f:'c/12h'} },
+  { keys:['cefalexina','cefalexin'],perro:{d:'15–30 mg/kg',f:'c/8–12h'}, gato:{d:'15–25 mg/kg',f:'c/12h'} },
+  { keys:['enrofloxacino','enrofloxacin'], perro:{d:'5–20 mg/kg',f:'c/24h'}, gato:{d:'2.5–5 mg/kg',f:'c/24h'} },
+  { keys:['prednisolona'],          perro:{d:'0.5–2 mg/kg',f:'c/12–24h'}, gato:{d:'1–2 mg/kg',f:'c/12–24h'} },
+  { keys:['tramadol'],              perro:{d:'2–5 mg/kg',f:'c/8–12h'}, gato:{d:'1–4 mg/kg',f:'c/12h'} },
+  { keys:['furosemida','furosemide'], perro:{d:'1–4 mg/kg',f:'c/8–12h'}, gato:{d:'1–2 mg/kg',f:'c/8–24h'} },
+  { keys:['doxiciclina','doxycyclin'], perro:{d:'5–10 mg/kg',f:'c/12–24h'}, gato:{d:'5–10 mg/kg',f:'c/24h'} },
+  { keys:['maropitant'],            perro:{d:'1–2 mg/kg',f:'c/24h'}, gato:{d:'1 mg/kg',f:'c/24h'} },
+  { keys:['ácido ursodesoxicólico','acido ursodesoxicolico','ursodiol','ursodesoxicolico'], perro:{d:'10–15 mg/kg',f:'c/24h'}, gato:{d:'10–15 mg/kg',f:'c/24h'} },
+];
+
+/* Extrae concentración del nombre del producto por regex.
+   Ej: "ANIMELOXAN 1,5 mg/ml" → {valor:1.5, unidad:'mg/ml', unidadSel:'mg/ml'}
+   La API no expone posología en texto — está solo en el PDF de la ficha técnica.
+   Esta función extrae la CONCENTRACIÓN del nombre comercial, útil para auto-rellenar
+   el campo "Concentración del fármaco" en el panel de configuración. */
+function extractConcentracion(nombre) {
+  if (!nombre) return null;
+  const n = nombre.replace(/,/g, '.'); // "1,5" → "1.5"
+
+  // Líquido: X mg/ml, X mcg/ml, X UI/ml, X g/ml
+  const liq = /(\d+\.?\d*)\s*(mg|mcg|ug|ui|g)\s*\/\s*ml/i.exec(n);
+  if (liq) {
+    const u = liq[2].toLowerCase().replace('ug','mcg');
+    return { valor: parseFloat(liq[1]), unidad: `${u}/ml`, unidadSel: `${u}/ml` };
+  }
+
+  // Sólido: X mg seguido de COMPRIMIDO/COMP/CÁPSULA/TABLETA/SOBRE (en cualquier posición)
+  const sol = /(\d+\.?\d*)\s*(mg|mcg|ui)\s+(?=.*(?:comprimido|comp|c[aá]psula|tableta|polvo|granul|sobre))/i.exec(n);
+  if (sol) {
+    const u = sol[2].toLowerCase().replace('ug','mcg');
+    const forma = /c[aá]psula/i.test(n) ? 'mg/cápsula' : 'mg/comp';
+    return { valor: parseFloat(sol[1]), unidad: forma, unidadSel: forma };
+  }
+
+  return null;
+}
+
+function findDosisRef(pactivos) {
+  if (!pactivos) return null;
+  const p = pactivos.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // strip accents for matching
+  for (const entry of DOSIS_REF) {
+    if (entry.keys.some(k => {
+      const kn = k.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return p.includes(kn);
+    })) return entry;
+  }
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SUPABASE CLIENT
+══════════════════════════════════════════════════════════════ */
+const BASE_KEY = 'vademecum_base';
+let sb = null;   // Supabase client (null = modo local)
+
+function initSupabase() {
+  if (typeof SUPABASE_CONFIGURED === 'undefined' || !SUPABASE_CONFIGURED) {
+    setConnBadge('local');
+    return null;
+  }
+  try {
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return client;
+  } catch (e) {
+    console.warn('Error inicializando Supabase:', e);
+    setConnBadge('local');
+    return null;
+  }
+}
+
+function setConnBadge(state, label) {
+  const badge = document.getElementById('conn-badge');
+  const lbl   = document.getElementById('conn-label');
+  if (!badge) return;
+  badge.className = 'conn-badge conn-' + state;
+  lbl.textContent = label || { online: 'Nube activa', offline: 'Sin conexión', local: 'Modo local' }[state];
+}
+
+function showSyncProgress(msg) {
+  const el = document.getElementById('sync-progress');
+  const ms = document.getElementById('sync-msg');
+  if (el) { el.classList.add('show'); if (ms) ms.textContent = msg || 'Sincronizando…'; }
+}
+function hideSyncProgress() {
+  const el = document.getElementById('sync-progress');
+  if (el) el.classList.remove('show');
+}
+
+/* ── Supabase: leer todas las dosis personalizadas ── */
+async function sbGetAll() {
+  if (!sb) return idbGetAll();
+  const { data, error } = await sb.from('dosis_personalizadas').select('*');
+  if (error) { console.warn('sbGetAll error:', error); return idbGetAll(); }
+  // Normalizar formato Supabase → formato interno
+  return (data || []).map(r => ({
+    id:     r.medicamento_id,
+    nombre: r.nombre || '',
+    perro:  { dosis: r.perro_dosis, unidad: r.perro_unidad, conc: r.perro_concentracion, concUnit: r.perro_conc_unidad, priorizar: r.perro_priorizar },
+    gato:   { dosis: r.gato_dosis,  unidad: r.gato_unidad,  conc: r.gato_concentracion,  concUnit: r.gato_conc_unidad,  priorizar: r.gato_priorizar  },
+    notas:  r.notas,
+    updatedAt: r.updated_at,
+  }));
+}
+
+/* ── Supabase: guardar / actualizar dosis (upsert) ── */
+async function sbPut(record) {
+  if (!sb) return idbPut(record);
+  const row = {
+    medicamento_id:     record.id,
+    nombre:             record.nombre || '',
+    perro_dosis:        record.perro?.dosis        || null,
+    perro_unidad:       record.perro?.unidad       || 'mg/kg',
+    perro_concentracion:record.perro?.conc         || null,
+    perro_conc_unidad:  record.perro?.concUnit     || 'mg/ml',
+    perro_priorizar:    record.perro?.priorizar    || false,
+    gato_dosis:         record.gato?.dosis         || null,
+    gato_unidad:        record.gato?.unidad        || 'mg/kg',
+    gato_concentracion: record.gato?.conc          || null,
+    gato_conc_unidad:   record.gato?.concUnit      || 'mg/ml',
+    gato_priorizar:     record.gato?.priorizar     || false,
+    notas:              record.notas               || null,
+  };
+  const { error } = await sb.from('dosis_personalizadas').upsert(row, { onConflict: 'medicamento_id' });
+  if (error) { console.warn('sbPut error:', error); return idbPut(record); }
+  // Mantener copia local también
+  idbPut(record);
+}
+
+/* ── Supabase: eliminar dosis ── */
+async function sbDelete(id) {
+  if (!sb) return idbDelete(id);
+  const { error } = await sb.from('dosis_personalizadas').delete().eq('medicamento_id', id);
+  if (error) { console.warn('sbDelete error:', error); return idbDelete(id); }
+  idbDelete(id);
+}
+
+/* ── Supabase: sincronización inicial de medicamentos_base ── */
+async function sbSyncMedicamentos(drugs, dosisMap) {
+  if (!sb || !drugs.length) return;
+  // ¿Ya hay datos en la tabla?
+  const { count } = await sb.from('medicamentos_base').select('id', { count: 'exact', head: true });
+  if (count > 0) return;   // ya sincronizado
+
+  showSyncProgress('Subiendo catálogo AEMPS a Supabase…');
+  const CHUNK = 100;
+  let uploaded = 0;
+  for (let i = 0; i < drugs.length; i += CHUNK) {
+    const slice = drugs.slice(i, i + CHUNK).map(d => {
+      const dp = dosisMap[d.id];
+      return {
+        id:                d.id,
+        nombre:            d.nombre,
+        pactivos:          d.pactivos || '',
+        url_ficha:         d.urlFicha || '',
+        via_administracion:d.viasAdministracion || '',
+        forma_farmaceutica:d.formaFarmaceutica || '',
+        dispensacion:      d.dispensacion || '',
+        antibiotico:       d.antibiotico || false,
+        labtitular:        d.labtitular || '',
+        dosis_perro:       dp?.perro  || null,
+        dosis_gato:        dp?.gato   || null,
+        posologia_raw:     dosisMap[d.id]?.posologia_raw || null,
+      };
+    });
+    const { error } = await sb.from('medicamentos_base').upsert(slice, { onConflict: 'id' });
+    if (error) { console.warn('sbSyncMedicamentos chunk error:', error); break; }
+    uploaded += slice.length;
+    showSyncProgress(`Subiendo catálogo… ${uploaded}/${drugs.length}`);
+  }
+  hideSyncProgress();
+  toast(`✓ ${uploaded} medicamentos sincronizados con Supabase`);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INDEXEDDB (fallback local cuando Supabase no está configurado)
+══════════════════════════════════════════════════════════════ */
+const DB_NAME    = 'vetdose_db';
+const DB_VERSION = 1;
+const STORE      = 'dosis_config';
+
+let db = null;
+
+function initDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE)) {
+        d.createObjectStore(STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function idbGet(id) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(id);
+    req.onsuccess = e => res(e.target.result || null);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function idbPut(record) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).put(record);
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function idbDelete(id) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).delete(id);
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function idbGetAll() {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = e => res(e.target.result || []);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════════════ */
+let allDrugs     = [];   // from localStorage vademecum_base
+let configsMap   = {};   // id → config from IndexedDB
+let filteredDrugs= [];
+let activeDrug   = null;
+let dosisFromPdf = {};   // id → {perro, gato} from vademecum_dosis.json
+
+/* ══════════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════════ */
+async function init() {
+  // Inicializar IndexedDB siempre (fallback local)
+  await initDB();
+
+  // Inicializar Supabase (puede ser null si no está configurado)
+  sb = initSupabase();
+
+  // Comprobar conectividad a Supabase
+  if (sb) {
+    try {
+      const { error } = await sb.from('medicamentos_base').select('id', { count: 'exact', head: true });
+      setConnBadge(error ? 'offline' : 'online');
+    } catch { setConnBadge('offline'); sb = null; }
+  }
+
+  // Cargar catálogo AEMPS (localStorage → JSON local)
+  try {
+    const raw = localStorage.getItem(BASE_KEY);
+    if (raw) {
+      allDrugs = JSON.parse(raw);
+    } else {
+      const resp = await fetch('./vademecum_base.json');
+      if (resp.ok) {
+        allDrugs = await resp.json();
+        localStorage.setItem(BASE_KEY, JSON.stringify(allDrugs));
+      }
+    }
+  } catch { allDrugs = []; }
+
+  // Cargar dosis extraídas de PDFs
+  try {
+    const pr = await fetch('./vademecum_dosis.json');
+    if (pr.ok) {
+      const arr = await pr.json();
+      dosisFromPdf = {};
+      arr.forEach(e => { if (e.dosis) dosisFromPdf[e.id] = { ...e.dosis, posologia_raw: e.posologia_raw }; });
+    }
+  } catch { /* archivo aún no generado — silencioso */ }
+
+  // Sincronización inicial: subir medicamentos_base si la tabla está vacía
+  if (sb && allDrugs.length) {
+    sbSyncMedicamentos(allDrugs, dosisFromPdf).catch(console.warn);
+  }
+
+  // Cargar dosis personalizadas (Supabase → IndexedDB fallback)
+  const configs = await sbGetAll();
+  configsMap = {};
+  configs.forEach(c => { configsMap[c.id] = c; });
+
+  filteredDrugs = allDrugs;
+  renderTable();
+  updateStats();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RENDER TABLE
+══════════════════════════════════════════════════════════════ */
+function renderTable() {
+  const wrap = document.getElementById('table-wrap');
+
+  if (allDrugs.length === 0) {
+    wrap.innerHTML = document.getElementById('empty-state').outerHTML;
+    return;
+  }
+
+  if (filteredDrugs.length === 0) {
+    wrap.innerHTML = `<div class="empty-state">
+      <h3>Sin resultados</h3>
+      <p>Ningún fármaco coincide con la búsqueda.</p>
+    </div>`;
+    return;
+  }
+
+  const rows = filteredDrugs.map(d => {
+    const cfg      = configsMap[d.id];
+    const isReady  = !!cfg;
+    const dotClass = isReady ? 'dot-ready' : 'dot-pending';
+
+    const dosisHtml = isReady
+      ? buildDosisPreview(cfg)
+      : '<span class="dosis-none">Sin configurar</span>';
+
+    const abTag = d.antibiotico
+      ? '<span class="tag tag-ab">AB</span>'
+      : '';
+    const dispTag = d.dispensacion && d.dispensacion.toLowerCase().includes('receta')
+      ? '<span class="tag tag-rx">RX</span>'
+      : '<span class="tag tag-nrx">OTC</span>';
+
+    const conc = extractConcentracion(d.nombre);
+    const fichaHtml = d.urlFicha
+      ? `<div>
+           <a class="ficha-link" href="${esc(d.urlFicha)}" target="_blank" rel="noopener" title="Abrir ficha técnica PDF">
+             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+               <polyline points="14 2 14 8 20 8"/>
+             </svg>
+             Ficha técnica
+           </a>
+           ${conc ? `<div><span class="ficha-conc" title="Concentración detectada en el nombre del producto">${conc.valor} ${conc.unidad}</span></div>` : ''}
+         </div>`
+      : '<span class="ficha-na">—</span>';
+
+    const ref    = findDosisRef(d.pactivos);         // base interna VetDose
+    const pdfRef = dosisFromPdf[d.id] || null;        // extraído del PDF AEMPS
+    const refHtml = buildRefHtml(ref, pdfRef);
+
+    return `<tr id="row-${esc(d.id)}">
+      <td style="text-align:center">
+        <span class="status-dot ${dotClass}" title="${isReady ? 'Configurado' : 'Sin configurar'}"></span>
+      </td>
+      <td>
+        <div class="drug-name">${esc(d.nombre)}</div>
+        <div class="drug-pa">${esc(d.pactivos || '—')}</div>
+      </td>
+      <td style="white-space:nowrap">${abTag} ${dispTag}</td>
+      <td style="color:var(--g500);font-size:12px">${esc(d.formaFarmaceutica || '—')}</td>
+      <td style="color:var(--g500);font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.viasAdministracion || '—')}</td>
+      <td>${fichaHtml}</td>
+      <td>${refHtml}</td>
+      <td>${dosisHtml}</td>
+      <td>
+        <button class="btn btn-sm ${isReady ? 'btn-green' : 'btn-ghost'}"
+                onclick="openPanel('${esc(d.id)}')">
+          ${isReady ? '✓ Editar dosis' : 'Configurar dosis'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table>
+    <thead>
+      <tr>
+        <th style="width:36px"></th>
+        <th>Medicamento</th>
+        <th>Tags</th>
+        <th>Forma</th>
+        <th>Vía</th>
+        <th>Ficha técnica</th>
+        <th>Dosis ref.</th>
+        <th>Mis dosis</th>
+        <th style="width:130px">Acción</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+/* Construye el HTML de la celda "Dosis ref." combinando fuentes:
+   1. Base interna VetDose (12 fármacos con rango clínico)
+   2. Extracción PDF via script Python (vademecum_dosis.json) */
+function buildRefHtml(ref, pdfRef) {
+  // ── Fuente PDF (más específica y exacta por producto) ──
+  if (pdfRef && (pdfRef.perro || pdfRef.gato)) {
+    const rows = [];
+    if (pdfRef.perro) {
+      const v = pdfRef.perro;
+      const val = v.max ? `${v.valor}–${v.max}` : `${v.valor}`;
+      rows.push(`<div class="dosis-ref-row">
+        <span class="dosis-ref-esp">🐕</span>
+        <span class="dosis-ref-val">${val} ${v.unidad}</span>
+        <span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-weight:700;margin-left:3px">PDF</span>
+      </div>`);
+    }
+    if (pdfRef.gato) {
+      const v = pdfRef.gato;
+      const val = v.max ? `${v.valor}–${v.max}` : `${v.valor}`;
+      rows.push(`<div class="dosis-ref-row">
+        <span class="dosis-ref-esp">🐈</span>
+        <span class="dosis-ref-val">${val} ${v.unidad}</span>
+        <span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-weight:700;margin-left:3px">PDF</span>
+      </div>`);
+    }
+    return `<div class="dosis-ref-cell">${rows.join('')}</div>`;
+  }
+  // ── Fuente base interna VetDose ──
+  if (ref) {
+    return `<div class="dosis-ref-cell">
+      <div class="dosis-ref-row">
+        <span class="dosis-ref-esp">🐕</span>
+        <span class="dosis-ref-val">${ref.perro.d}</span>
+        <span class="dosis-ref-frec">${ref.perro.f}</span>
+      </div>
+      <div class="dosis-ref-row">
+        <span class="dosis-ref-esp">🐈</span>
+        <span class="dosis-ref-val">${ref.gato.d}</span>
+        <span class="dosis-ref-frec">${ref.gato.f}</span>
+      </div>
+    </div>`;
+  }
+  return '<span class="dosis-ref-na">—</span>';
+}
+
+function buildDosisPreview(cfg) {
+  const parts = [];
+  if (cfg.perro && cfg.perro.dosis) parts.push(`🐕 ${cfg.perro.dosis} ${cfg.perro.unidad}`);
+  if (cfg.gato  && cfg.gato.dosis)  parts.push(`🐈 ${cfg.gato.dosis} ${cfg.gato.unidad}`);
+  if (parts.length === 0) return '<span class="dosis-none">Sin dosis</span>';
+  return `<span class="dosis-preview">${parts.join(' / ')}</span>`;
+}
+
+function updateStats() {
+  const total   = allDrugs.length;
+  const ready   = allDrugs.filter(d => configsMap[d.id]).length;
+  const pending = total - ready;
+  document.getElementById('stat-total').textContent   = `${total.toLocaleString('es')} total`;
+  document.getElementById('stat-ready').textContent   = `${ready} listos`;
+  document.getElementById('stat-pending').textContent = `${pending} pendientes`;
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SEARCH
+══════════════════════════════════════════════════════════════ */
+function onSearch(q) {
+  const qn = q.trim().toLowerCase();
+  if (!qn) {
+    filteredDrugs = allDrugs;
+  } else {
+    filteredDrugs = allDrugs.filter(d =>
+      (d.nombre      || '').toLowerCase().includes(qn) ||
+      (d.pactivos    || '').toLowerCase().includes(qn) ||
+      (d.labtitular  || '').toLowerCase().includes(qn)
+    );
+  }
+  renderTable();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PANEL OPEN / CLOSE
+══════════════════════════════════════════════════════════════ */
+async function openPanel(id) {
+  const drug = allDrugs.find(d => d.id === id);
+  if (!drug) return;
+  activeDrug = drug;
+
+  document.getElementById('panel-name').textContent = drug.nombre || '—';
+  document.getElementById('panel-pa').textContent   = drug.pactivos || '—';
+
+  // Cargar config existente
+  const cfg = configsMap[id] || null;
+  populateForm(cfg);
+
+  document.getElementById('btn-delete').style.display = cfg ? 'inline-flex' : 'none';
+
+  // Auto-fill concentración desde nombre si el panel está vacío
+  if (!cfg) {
+    const conc = extractConcentracion(drug.nombre);
+    if (conc) {
+      setVal('p-conc', conc.valor);
+      setVal('p-conc-unit', conc.unidadSel);
+      setVal('g-conc', conc.valor);
+      setVal('g-conc-unit', conc.unidadSel);
+      updateFormula('p');
+      updateFormula('g');
+    }
+  }
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('side-panel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('side-panel').classList.remove('open');
+  activeDrug = null;
+}
+
+function populateForm(cfg) {
+  const p = cfg && cfg.perro ? cfg.perro : {};
+  const g = cfg && cfg.gato  ? cfg.gato  : {};
+
+  setVal('p-dosis',      p.dosis      || '');
+  setVal('p-unidad',     p.unidad     || 'mg/kg');
+  setVal('p-conc',       p.conc       || '');
+  setVal('p-conc-unit',  p.concUnit   || 'mg/ml');
+  setChk('p-priorizar',  p.priorizar  || false);
+
+  setVal('g-dosis',      g.dosis      || '');
+  setVal('g-unidad',     g.unidad     || 'mg/kg');
+  setVal('g-conc',       g.conc       || '');
+  setVal('g-conc-unit',  g.concUnit   || 'mg/ml');
+  setChk('g-priorizar',  g.priorizar  || false);
+
+  setVal('notas', cfg ? cfg.notas || '' : '');
+
+  updateFormula('p');
+  updateFormula('g');
+}
+
+function setVal(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.value = v;
+}
+function setChk(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.checked = v;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FORMULA PREVIEW
+══════════════════════════════════════════════════════════════ */
+function updateFormula(sp) {
+  const dosis  = parseFloat(document.getElementById(`${sp}-dosis`).value);
+  const unidad = document.getElementById(`${sp}-unidad`).value;
+  const conc   = parseFloat(document.getElementById(`${sp}-conc`).value);
+  const cUnit  = document.getElementById(`${sp}-conc-unit`).value;
+  const el     = document.getElementById(`${sp}-formula`);
+
+  if (!dosis || !conc) {
+    el.textContent = 'Introduce la dosis y concentración para calcular.';
+    el.style.background = 'var(--g100)';
+    el.style.color = 'var(--g500)';
+    return;
+  }
+
+  const exKg = 10; // ejemplo 10 kg
+  let vol = null;
+  let formula = '';
+
+  // Calcular solo si unidades compatibles
+  const dosisBase = unidad.replace('/kg','').replace('/animal','');
+  const concBase  = cUnit.replace('/ml','').replace('/comp','').replace('/cápsula','');
+
+  if (dosisBase === concBase) {
+    if (unidad.includes('/kg')) {
+      vol = (dosis * exKg) / conc;
+      formula = `Para ${exKg} kg → ${(dosis * exKg).toFixed(2)} ${dosisBase} → ${vol.toFixed(2)} ${cUnit.includes('/ml') ? 'ml' : cUnit.includes('/comp') ? 'comp' : 'cáps'}`;
+    } else {
+      vol = dosis / conc;
+      formula = `${dosis} ${dosisBase} → ${vol.toFixed(2)} ${cUnit.includes('/ml') ? 'ml' : 'unidad'}`;
+    }
+    el.textContent = formula;
+    el.style.background = 'var(--green-50)';
+    el.style.color = 'var(--green-d)';
+  } else {
+    el.textContent = `⚠️ Unidades incompatibles (${dosisBase} ≠ ${concBase}) — revisa la selección.`;
+    el.style.background = 'var(--amber-l)';
+    el.style.color = '#92400e';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SAVE / DELETE
+══════════════════════════════════════════════════════════════ */
+async function saveConfig() {
+  if (!activeDrug) return;
+
+  const record = {
+    id:     activeDrug.id,
+    nombre: activeDrug.nombre,
+    perro: {
+      dosis:     document.getElementById('p-dosis').value,
+      unidad:    document.getElementById('p-unidad').value,
+      conc:      document.getElementById('p-conc').value,
+      concUnit:  document.getElementById('p-conc-unit').value,
+      priorizar: document.getElementById('p-priorizar').checked,
+    },
+    gato: {
+      dosis:     document.getElementById('g-dosis').value,
+      unidad:    document.getElementById('g-unidad').value,
+      conc:      document.getElementById('g-conc').value,
+      concUnit:  document.getElementById('g-conc-unit').value,
+      priorizar: document.getElementById('g-priorizar').checked,
+    },
+    notas:     document.getElementById('notas').value,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await sbPut(record);
+  configsMap[record.id] = record;
+
+  // Actualizar fila
+  updateRow(record.id);
+  updateStats();
+  closePanel();
+  toast('✓ Configuración guardada');
+}
+
+async function deleteConfig() {
+  if (!activeDrug) return;
+  await sbDelete(activeDrug.id);
+  delete configsMap[activeDrug.id];
+  updateRow(activeDrug.id);
+  updateStats();
+  closePanel();
+  toast('Configuración eliminada');
+}
+
+function updateRow(id) {
+  const drug = allDrugs.find(d => d.id === id);
+  if (!drug) return;
+  // Re-render solo si está en la tabla actual
+  const row = document.getElementById(`row-${CSS.escape ? CSS.escape(id) : id}`);
+  if (!row) return renderTable(); // fallback full render
+  const cfg      = configsMap[id];
+  const isReady  = !!cfg;
+  const dot      = row.querySelector('.status-dot');
+  const dosisCell = row.cells[5];
+  const btn       = row.cells[6].querySelector('button');
+
+  if (dot) {
+    dot.className = `status-dot ${isReady ? 'dot-ready' : 'dot-pending'}`;
+    dot.title = isReady ? 'Configurado' : 'Sin configurar';
+  }
+  if (dosisCell) dosisCell.innerHTML = isReady ? buildDosisPreview(cfg) : '<span class="dosis-none">Sin configurar</span>';
+  if (btn) {
+    btn.className = `btn btn-sm ${isReady ? 'btn-green' : 'btn-ghost'}`;
+    btn.textContent = isReady ? '✓ Editar dosis' : 'Configurar dosis';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SINCRONIZAR CON AEMPS
+══════════════════════════════════════════════════════════════ */
+const API_BASE  = 'https://cimavet.aemps.es/cimavet/rest';
+const PAGE_SIZE = 25;
+const KW        = ['perro','gato','canino','felino','canis','felis'];
+
+function isCanineFeline(nombre) {
+  const n = (nombre || '').toLowerCase();
+  return KW.some(k => n.includes(k));
+}
+
+function extractMed(raw) {
+  const ft = (raw.docs || []).find(d => d.tipo === 1);
+  return {
+    id:               raw.nregistro,
+    nombre:           raw.nombre,
+    pactivos:         raw.pactivos || '',
+    viasAdministracion: (raw.viasAdministracion || []).map(v => v.nombre).join(', '),
+    urlFicha:         ft ? ft.url : '',
+    dispensacion:     raw.dispensacion?.nombre || '',
+    formaFarmaceutica: (raw.formasFarmaceuticas || []).map(f => f.nombre).join(', '),
+    antibiotico:      raw.antibiotico || false,
+    labtitular:       raw.labtitular || '',
+  };
+}
+
+async function syncAEMPS() {
+  const btn = document.getElementById('btn-sync');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Sincronizando…';
+
+  try {
+    const ac   = new AbortController();
+    const tid  = setTimeout(() => ac.abort(), 10000);
+    const resp = await fetch(`${API_BASE}/medicamentos?pagina=1`, {
+      headers: { 'Accept': 'application/json' }, signal: ac.signal
+    });
+    clearTimeout(tid);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const first      = await resp.json();
+    const totalPages = Math.ceil((first.totalFilas || 0) / PAGE_SIZE);
+    const newDrugs   = [];
+
+    // Proc first page
+    (first.resultados || []).forEach(r => {
+      if (isCanineFeline(r.nombre)) newDrugs.push(extractMed(r));
+    });
+
+    // Remaining pages
+    for (let p = 2; p <= totalPages; p++) {
+      const ac2 = new AbortController();
+      const t2  = setTimeout(() => ac2.abort(), 10000);
+      const r2  = await fetch(`${API_BASE}/medicamentos?pagina=${p}`, {
+        headers: { 'Accept': 'application/json' }, signal: ac2.signal
+      });
+      clearTimeout(t2);
+      if (!r2.ok) continue;
+      const d2 = await r2.json();
+      (d2.resultados || []).forEach(r => {
+        if (isCanineFeline(r.nombre)) newDrugs.push(extractMed(r));
+      });
+      // Yield cada 10 páginas
+      if (p % 10 === 0) {
+        btn.innerHTML = `⏳ ${Math.round((p/totalPages)*100)}%…`;
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    // Merge: nuevos registros que no estén ya en allDrugs
+    const existingIds = new Set(allDrugs.map(d => d.id));
+    const added = newDrugs.filter(d => !existingIds.has(d.id));
+    allDrugs = [...allDrugs, ...added];
+
+    // Actualizar nombres de existentes
+    newDrugs.forEach(nd => {
+      const idx = allDrugs.findIndex(d => d.id === nd.id);
+      if (idx > -1) allDrugs[idx] = { ...allDrugs[idx], ...nd };
+    });
+
+    localStorage.setItem('vademecum_base', JSON.stringify(allDrugs));
+    filteredDrugs = allDrugs;
+    renderTable();
+    updateStats();
+    toast(`✓ Sincronización completa — ${added.length} nuevos registros`);
+
+  } catch (err) {
+    toast(`✗ Error: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Sincronizar AEMPS`;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════════════ */
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KEYBOARD
+══════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePanel();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   START
+══════════════════════════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>

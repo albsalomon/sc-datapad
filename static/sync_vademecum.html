@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>VetDose — Sincronización Vademécum AEMPS</title>
+  <style>
+    :root {
+      --blue: #2563eb; --blue-dark: #1d4ed8; --blue-light: #dbeafe; --blue-50: #eff6ff;
+      --green: #10b981; --green-light: #d1fae5;
+      --amber: #f59e0b; --amber-light: #fef3c7;
+      --red: #dc2626; --red-light: #fee2e2;
+      --slate: #f1f5f9;
+      --white: #ffffff;
+      --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+      --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563;
+      --gray-700: #374151; --gray-800: #1f2937;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--slate); min-height: 100vh; color: var(--gray-800);
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+      padding: 24px 16px 48px;
+    }
+
+    /* ── Layout ── */
+    .container { width: 100%; max-width: 560px; }
+    .card  { background: var(--white); border-radius: 20px; border: 1px solid var(--gray-200);
+             box-shadow: 0 2px 8px rgba(0,0,0,.06); padding: 28px; margin-bottom: 16px; }
+    .card-tight { padding: 20px; }
+
+    /* ── Brand header ── */
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .logo-box {
+      width: 44px; height: 44px; background: var(--blue); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 15px; color: #fff; letter-spacing: -.02em;
+      box-shadow: 0 3px 10px rgba(37,99,235,.3); flex-shrink: 0;
+    }
+    .brand-title   { font-size: 20px; font-weight: 800; color: var(--gray-800); line-height: 1; }
+    .brand-sub     { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+
+    /* ── Section title ── */
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .12em; color: var(--gray-400); margin-bottom: 14px;
+    }
+
+    /* ── Info grid ── */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .info-box  {
+      background: var(--gray-100); border-radius: 12px; padding: 14px;
+      border: 1px solid var(--gray-200);
+    }
+    .info-label { font-size: 11px; color: var(--gray-500); margin-bottom: 4px; font-weight: 500; }
+    .info-value { font-size: 18px; font-weight: 700; color: var(--gray-800); line-height: 1; }
+    .info-sub   { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+
+    /* ── Warning banner ── */
+    .warn-banner {
+      background: var(--amber-light); border: 1px solid #fde68a; border-radius: 12px;
+      padding: 12px 16px; display: flex; gap: 10px; align-items: flex-start;
+      margin-bottom: 20px; font-size: 13px; color: #92400e; line-height: 1.5;
+    }
+    .warn-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 28px; border-radius: 12px; font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; font-family: inherit; transition: all .15s;
+      width: 100%; letter-spacing: .01em;
+    }
+    .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 3px 10px rgba(37,99,235,.25); }
+    .btn-primary:hover:not(:disabled) { background: var(--blue-dark); box-shadow: 0 4px 14px rgba(37,99,235,.35); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-secondary { background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-200); }
+    .btn-secondary:hover:not(:disabled) { background: var(--gray-200); color: var(--gray-800); }
+    .btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #fca5a5; }
+    .btn-danger:hover:not(:disabled) { background: #fecaca; }
+    .btn-row { display: flex; gap: 10px; }
+    .btn-row .btn { flex: 1; }
+
+    /* ── Progress ── */
+    .progress-section { display: none; }
+    .progress-section.visible { display: block; }
+    .progress-bar-wrap {
+      background: var(--gray-100); border-radius: 999px; height: 10px;
+      overflow: hidden; margin: 12px 0 8px;
+    }
+    .progress-bar {
+      height: 100%; border-radius: 999px; width: 0%;
+      background: linear-gradient(90deg, var(--blue), #60a5fa);
+      transition: width .3s ease-out;
+    }
+    .progress-bar.done { background: linear-gradient(90deg, var(--green), #34d399); }
+    .progress-label {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: var(--gray-500);
+    }
+    .progress-pct { font-weight: 700; color: var(--blue); font-size: 14px; }
+    .progress-pct.done { color: var(--green); }
+
+    /* ── Log ── */
+    .log-box {
+      background: #0f172a; border-radius: 10px; padding: 14px 16px;
+      font-family: 'Courier New', monospace; font-size: 11px;
+      color: #94a3b8; max-height: 180px; overflow-y: auto;
+      margin-top: 14px; border: 1px solid #1e293b;
+    }
+    .log-box .line { line-height: 1.7; }
+    .log-box .ok   { color: #34d399; }
+    .log-box .warn { color: #fbbf24; }
+    .log-box .err  { color: #f87171; }
+    .log-box .info { color: #60a5fa; }
+    .log-box::-webkit-scrollbar { width: 4px; }
+    .log-box::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+    /* ── Stats ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .stat-box {
+      border-radius: 12px; padding: 14px; text-align: center;
+      border: 1px solid; display: flex; flex-direction: column; align-items: center;
+    }
+    .stat-box.blue  { background: var(--blue-50);  border-color: var(--blue-light); }
+    .stat-box.green { background: var(--green-light); border-color: #a7f3d0; }
+    .stat-box.amber { background: var(--amber-light); border-color: #fde68a; }
+    .stat-num  { font-size: 26px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .stat-lbl  { font-size: 11px; font-weight: 500; }
+    .blue .stat-num  { color: var(--blue); }     .blue .stat-lbl  { color: #3b82f6; }
+    .green .stat-num { color: #059669; }         .green .stat-lbl { color: #10b981; }
+    .amber .stat-num { color: #d97706; }         .amber .stat-lbl { color: var(--amber); }
+
+    /* ── Success banner ── */
+    .success-banner {
+      background: var(--green-light); border: 1px solid #a7f3d0; border-radius: 14px;
+      padding: 16px 20px; text-align: center; margin-bottom: 16px;
+    }
+    .success-icon  { font-size: 32px; margin-bottom: 8px; }
+    .success-title { font-size: 16px; font-weight: 700; color: #065f46; margin-bottom: 4px; }
+    .success-sub   { font-size: 13px; color: #059669; }
+
+    /* ── Error ── */
+    .error-banner {
+      background: var(--red-light); border: 1px solid #fca5a5; border-radius: 14px;
+      padding: 16px 20px; margin-bottom: 16px;
+    }
+    .error-title { font-weight: 700; color: var(--red); margin-bottom: 6px; font-size: 14px; }
+    .error-body  { font-size: 13px; color: #7f1d1d; line-height: 1.6; }
+    .code-block  {
+      background: #1e1b4b; color: #c4b5fd; border-radius: 8px;
+      padding: 10px 14px; font-family: monospace; font-size: 12px;
+      margin-top: 10px; line-height: 1.7; overflow-x: auto;
+    }
+
+    /* ── Result data sample ── */
+    .sample-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+    .sample-table th {
+      background: var(--gray-100); color: var(--gray-500); font-size: 10px;
+      text-transform: uppercase; letter-spacing: .08em; padding: 8px 12px;
+      text-align: left; border-bottom: 1px solid var(--gray-200);
+    }
+    .sample-table td {
+      padding: 8px 12px; border-bottom: 1px solid var(--gray-100);
+      color: var(--gray-700); vertical-align: top; max-width: 120px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sample-table tr:last-child td { border-bottom: none; }
+    .sample-table tr:hover td { background: var(--gray-100); }
+    .pill {
+      display: inline-block; font-size: 10px; padding: 2px 7px;
+      border-radius: 20px; font-weight: 600;
+    }
+    .pill-dog { background: #dbeafe; color: #1d4ed8; }
+    .pill-cat { background: #ede9fe; color: #6d28d9; }
+    .pill-rx  { background: #fee2e2; color: var(--red); }
+    .pill-otc { background: var(--green-light); color: #065f46; }
+
+    /* ── Disclaimer ── */
+    .disclaimer { text-align: center; font-size: 11px; color: var(--gray-400); line-height: 1.7; padding-top: 8px; }
+
+    /* ── Hidden ── */
+    .hidden { display: none !important; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Brand -->
+  <div class="brand">
+    <div class="logo-box">Vd</div>
+    <div>
+      <div class="brand-title">VetDose</div>
+      <div class="brand-sub">Sincronización Vademécum · AEMPS CIMAVet</div>
+    </div>
+  </div>
+
+  <!-- ── Panel inicial ── -->
+  <div id="panel-initial" class="card">
+    <div class="section-title">Fuente de datos</div>
+
+    <div class="info-grid">
+      <div class="info-box">
+        <div class="info-label">API</div>
+        <div class="info-value" style="font-size:13px;font-weight:700">CIMAVet AEMPS</div>
+        <div class="info-sub">cimavet.aemps.es</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Total medicamentos</div>
+        <div class="info-value" id="total-count">—</div>
+        <div class="info-sub" id="total-pages">cargando…</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Filtro especie</div>
+        <div class="info-value" style="font-size:13px">🐕 + 🐈</div>
+        <div class="info-sub">Perros y Gatos</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Almacenamiento</div>
+        <div class="info-value" style="font-size:13px;font-weight:700">LocalStorage</div>
+        <div class="info-sub" id="storage-status">comprobando…</div>
+      </div>
+    </div>
+
+    <div class="warn-banner">
+      <span class="warn-icon">⚠️</span>
+      <span>La descarga completa (~151 páginas) tarda 2–4 min. Se procesará en bloques de 50 para no bloquear el navegador. No cierres esta pestaña durante la sincronización.</span>
+    </div>
+
+    <button id="btn-start" class="btn btn-primary" onclick="startSync()" disabled>
+      <span class="spinner" id="spinner-check"></span>
+      <span id="btn-start-label">Comprobando API…</span>
+    </button>
+  </div>
+
+  <!-- ── Panel de progreso ── -->
+  <div id="panel-progress" class="card hidden">
+    <div class="section-title">Progreso de descarga</div>
+
+    <div class="progress-bar-wrap">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+    <div class="progress-label">
+      <span id="progress-text" style="color:var(--gray-500)">Iniciando…</span>
+      <span id="progress-pct" class="progress-pct">0%</span>
+    </div>
+
+    <div class="log-box" id="log-box">
+      <div class="line info">▶ Esperando inicio…</div>
+    </div>
+
+    <div style="margin-top:14px">
+      <button id="btn-stop" class="btn btn-secondary" onclick="stopSync()">
+        ⏹ Detener descarga
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Panel de resultado ── -->
+  <div id="panel-result" class="card hidden">
+
+    <div id="result-success" class="success-banner hidden">
+      <div class="success-icon">✅</div>
+      <div class="success-title" id="result-title">Sincronización completada</div>
+      <div class="success-sub"  id="result-sub">—</div>
+    </div>
+
+    <div id="result-error" class="error-banner hidden">
+      <div class="error-title">❌ Error de sincronización</div>
+      <div class="error-body" id="error-body">—</div>
+    </div>
+
+    <div id="result-stats" class="stats-grid hidden" style="margin-bottom:16px">
+      <div class="stat-box green">
+        <div class="stat-num" id="stat-found">0</div>
+        <div class="stat-lbl">Perros + Gatos</div>
+      </div>
+      <div class="stat-box blue">
+        <div class="stat-num" id="stat-total">0</div>
+        <div class="stat-lbl">Total descargados</div>
+      </div>
+      <div class="stat-box amber">
+        <div class="stat-num" id="stat-pages">0</div>
+        <div class="stat-lbl">Páginas procesadas</div>
+      </div>
+    </div>
+
+    <div id="result-sample-section" class="hidden">
+      <div class="section-title">Muestra de datos (primeros 5)</div>
+      <div style="overflow-x:auto">
+        <table class="sample-table">
+          <thead>
+            <tr>
+              <th>Registro</th>
+              <th>Nombre</th>
+              <th>Principio activo</th>
+              <th>Vía</th>
+              <th>Rx</th>
+            </tr>
+          </thead>
+          <tbody id="sample-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-secondary" onclick="resetSync()">↺ Nueva sincronización</button>
+      <button class="btn btn-primary"   onclick="exportJSON()" id="btn-export">
+        ⬇ Exportar JSON
+      </button>
+    </div>
+
+    <div id="cors-help" class="hidden" style="margin-top:16px">
+      <div class="section-title">Alternativa: script Python</div>
+      <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">
+        Si el navegador bloquea la API por CORS, ejecuta este script en tu terminal:
+      </div>
+      <div class="code-block">python scripts/fetch_aemps.py</div>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    Datos oficiales de la AEMPS — Agencia Española de Medicamentos y Productos Sanitarios<br>
+    CIMAVet · <a href="https://cimavet.aemps.es" target="_blank" style="color:var(--blue)">cimavet.aemps.es</a>
+    · Uso exclusivo para referencia interna VetDose
+  </p>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIGURACIÓN
+══════════════════════════════════════════════════════════════ */
+const API_BASE    = 'https://cimavet.aemps.es/cimavet/rest';
+const PAGE_SIZE   = 25;   // Tamaño fijo que devuelve la API
+const CHUNK_SIZE  = 50;   // Medicamentos procesados antes de ceder al UI
+const STORAGE_KEY = 'vademecum_base';
+
+// Palabras clave en el nombre del medicamento para perros y gatos
+// La API CIMAVet no tiene filtro por especie — filtramos por nombre
+const KW_INCLUDE = ['perro','gato','canino','felino','canis','felis'];
+
+/* ═══════════════════════════════════════════════════════════
+   ESTADO GLOBAL
+══════════════════════════════════════════════════════════════ */
+let shouldStop = false;
+let resultData  = [];
+
+/* ═══════════════════════════════════════════════════════════
+   UTILIDADES
+══════════════════════════════════════════════════════════════ */
+
+/** Yield al event loop para que el UI se actualice */
+const yieldUI = () => new Promise(r => setTimeout(r, 0));
+
+/** Comprueba si el nombre del medicamento es para perro/gato */
+function isCanineFeline(nombre) {
+  const n = (nombre || '').toLowerCase();
+  return KW_INCLUDE.some(kw => n.includes(kw));
+}
+
+/** Extrae los campos clave de un medicamento crudo de la API */
+function extractMed(raw) {
+  const ft = (raw.docs || []).find(d => d.tipo === 1);
+  return {
+    id:                raw.nregistro || '',
+    nombre:            raw.nombre    || '',
+    pactivos:          raw.pactivos  || '',                      // Ya es string en CIMAVet
+    viasAdministracion:(raw.viasAdministracion || []).map(v => v.nombre || v).join(', '),
+    urlFicha:          ft ? ft.url : '',
+    dispensacion:      raw.dispensacion?.nombre || '',
+    formaFarmaceutica: (raw.formasFarmaceuticas || []).map(f => f.nombre || f).join(', '),
+    antibiotico:       raw.antibiotico || false,
+    labtitular:        raw.labtitular || '',
+  };
+}
+
+/** Formatea bytes a KB/MB legible */
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOG
+══════════════════════════════════════════════════════════════ */
+const logBox = () => document.getElementById('log-box');
+
+function log(msg, cls = '') {
+  const box = logBox();
+  const div = document.createElement('div');
+  div.className = 'line' + (cls ? ' ' + cls : '');
+  div.textContent = msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  // Limitar a 200 líneas para no usar demasiada memoria
+  while (box.children.length > 200) box.removeChild(box.firstChild);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROGRESO
+══════════════════════════════════════════════════════════════ */
+function updateProgress(done, total, found) {
+  const pct  = total > 0 ? Math.round(done / total * 100) : 0;
+  const bar  = document.getElementById('progress-bar');
+  const pctEl = document.getElementById('progress-pct');
+  const txt   = document.getElementById('progress-text');
+
+  bar.style.width = pct + '%';
+  pctEl.textContent = pct + '%';
+  txt.textContent = `Cargando ${done.toLocaleString('es')} de ${total.toLocaleString('es')} medicamentos · ${found} perros/gatos encontrados`;
+}
+
+function setProgressDone(done, found) {
+  document.getElementById('progress-bar').classList.add('done');
+  document.getElementById('progress-pct').classList.add('done');
+  document.getElementById('progress-bar').style.width = '100%';
+  document.getElementById('progress-pct').textContent = '100%';
+  document.getElementById('progress-text').textContent =
+    `✅ Completado — ${done.toLocaleString('es')} medicamentos · ${found} perros/gatos`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INTERFAZ — CAMBIOS DE PANEL
+══════════════════════════════════════════════════════════════ */
+function show(id)   { document.getElementById(id).classList.remove('hidden'); }
+function hide(id)   { document.getElementById(id).classList.add('hidden'); }
+function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
+
+/* ═══════════════════════════════════════════════════════════
+   INICIALIZACIÓN
+══════════════════════════════════════════════════════════════ */
+async function init() {
+  // Comprobar localStorage
+  const existing = localStorage.getItem(STORAGE_KEY);
+  if (existing) {
+    try {
+      const parsed = JSON.parse(existing);
+      document.getElementById('storage-status').textContent =
+        `${parsed.length} registros guardados`;
+    } catch {
+      document.getElementById('storage-status').textContent = 'Datos corruptos — re-sincronizar';
+    }
+  } else {
+    document.getElementById('storage-status').textContent = 'Sin datos locales';
+  }
+
+  // Comprobar API y obtener total
+  try {
+    const ac = new AbortController();
+    const tid = setTimeout(() => ac.abort(), 8000);
+    const resp = await fetch(`${API_BASE}/medicamentos?pagina=1`, {
+      headers: { 'Accept': 'application/json' },
+      signal: ac.signal
+    });
+    clearTimeout(tid);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const total = data.totalFilas || 0;
+    const pages = Math.ceil(total / PAGE_SIZE);
+
+    document.getElementById('total-count').textContent = total.toLocaleString('es');
+    document.getElementById('total-pages').textContent = `${pages} páginas de ${PAGE_SIZE}`;
+
+    const btn   = document.getElementById('btn-start');
+    const spin  = document.getElementById('spinner-check');
+    const label = document.getElementById('btn-start-label');
+
+    btn.disabled = false;
+    spin.style.display = 'none';
+    label.textContent  = '🚀 Iniciar Sincronización con AEMPS';
+
+  } catch (err) {
+    document.getElementById('total-count').textContent = '✗';
+    document.getElementById('total-pages').textContent = 'API no accesible';
+    const btn   = document.getElementById('btn-start');
+    const spin  = document.getElementById('spinner-check');
+    const label = document.getElementById('btn-start-label');
+    btn.disabled = false;
+    spin.style.display = 'none';
+    label.textContent = '⚠️ Intentar igualmente';
+    log('API no accesible en la comprobación inicial: ' + err.message, 'warn');
+    log('Puede ser un error CORS en el navegador. Intenta de todas formas.', 'warn');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SINCRONIZACIÓN PRINCIPAL
+══════════════════════════════════════════════════════════════ */
+async function startSync() {
+  shouldStop = false;
+  resultData = [];
+
+  // Cambiar al panel de progreso
+  hide('panel-initial');
+  show('panel-progress');
+  hide('panel-result');
+
+  // Limpiar log
+  document.getElementById('log-box').innerHTML = '';
+  log('▶ Iniciando sincronización con CIMAVet (AEMPS)…', 'info');
+  log(`⚙  Configuración: bloques de ${CHUNK_SIZE} | filtro: perros + gatos`, 'info');
+
+  let totalMeds  = 0;
+  let totalPages = 0;
+  let page       = 1;
+  let processed  = 0;
+  let found      = 0;
+
+  try {
+    // ── 1. Primera página — obtener total ────────────────
+    log('🔍 Obteniendo metadatos (página 1)…');
+    const first = await fetchPage(1);
+    totalMeds  = first.totalFilas || 0;
+    totalPages = Math.ceil(totalMeds / PAGE_SIZE);
+    log(`📊 Total AEMPS: ${totalMeds.toLocaleString('es')} medicamentos en ${totalPages} páginas`, 'ok');
+
+    // Procesar página 1
+    const chunk1 = processPage(first.resultados || []);
+    resultData.push(...chunk1.filtered);
+    processed += chunk1.total;
+    found      = resultData.length;
+    updateProgress(processed, totalMeds, found);
+    log(`  Pág 1/${totalPages} — ${chunk1.filtered.length} perros/gatos de ${chunk1.total}`);
+    await yieldUI();
+
+    // ── 2. Resto de páginas ────────────────────────────────
+    for (page = 2; page <= totalPages; page++) {
+      if (shouldStop) {
+        log('⏹ Descarga detenida por el usuario.', 'warn');
+        break;
+      }
+
+      const data  = await fetchPage(page);
+      const chunk = processPage(data.resultados || []);
+      resultData.push(...chunk.filtered);
+      processed += chunk.total;
+      found      = resultData.length;
+
+      // Log cada 10 páginas o en la primera/última
+      if (page % 10 === 0 || page === totalPages) {
+        log(`  Pág ${page}/${totalPages} — ${found} perros/gatos acumulados · ${processed} descargados`);
+      }
+
+      updateProgress(processed, totalMeds, found);
+
+      // Yield al UI cada CHUNK_SIZE medicamentos procesados para no bloquear
+      if (processed % CHUNK_SIZE < PAGE_SIZE) await yieldUI();
+    }
+
+    // ── 3. Finalizar ──────────────────────────────────────
+    if (!shouldStop) {
+      setProgressDone(processed, found);
+      log(`✅ Sincronización completada`, 'ok');
+      log(`   ${processed.toLocaleString('es')} medicamentos descargados`, 'ok');
+      log(`   ${found} medicamentos de perros/gatos encontrados`, 'ok');
+
+      // Guardar en localStorage
+      saveToStorage(resultData);
+      const sizeBytes = new Blob([JSON.stringify(resultData)]).size;
+      log(`💾 Guardado en localStorage bajo '${STORAGE_KEY}' (${fmtSize(sizeBytes)})`, 'ok');
+
+      showResult(true, processed, found, totalPages, null);
+    } else {
+      // Guardado parcial si se detuvo
+      if (resultData.length > 0) {
+        saveToStorage(resultData);
+        log(`💾 Guardado parcial: ${resultData.length} medicamentos`, 'warn');
+      }
+      showResult(false, processed, found, page - 1, 'Descarga detenida manualmente. Se guardaron los datos parciales.');
+    }
+
+  } catch (err) {
+    log(`❌ Error en página ${page}: ${err.message}`, 'err');
+    if (err.message.includes('CORS') || err.message.includes('fetch') || err.message.includes('Failed')) {
+      log('   Posible error CORS. La API puede no estar accesible desde el navegador.', 'err');
+      log('   Solución alternativa: ejecutar scripts/fetch_aemps.py desde Python', 'warn');
+      showCorsError(err.message);
+    } else {
+      showResult(false, processed, found, page - 1, err.message);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FETCH DE UNA PÁGINA
+══════════════════════════════════════════════════════════════ */
+async function fetchPage(pagina) {
+  const url  = `${API_BASE}/medicamentos?pagina=${pagina}`;
+  const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} en página ${pagina}`);
+  return resp.json();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROCESADO DE PÁGINA (PURA)
+══════════════════════════════════════════════════════════════ */
+function processPage(resultados) {
+  const filtered = resultados
+    .filter(r => isCanineFeline(r.nombre))
+    .map(extractMed);
+  return { total: resultados.length, filtered };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ALMACENAMIENTO
+══════════════════════════════════════════════════════════════ */
+function saveToStorage(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // Metadata adicional
+    localStorage.setItem(STORAGE_KEY + '_meta', JSON.stringify({
+      fechaSincronizacion: new Date().toISOString(),
+      total: data.length,
+      fuente: 'AEMPS CIMAVet',
+      version: '1.0'
+    }));
+  } catch (e) {
+    // Puede fallar si el storage está lleno
+    log(`⚠️  localStorage lleno o bloqueado: ${e.message}`, 'warn');
+    log('   Usa el botón "Exportar JSON" para guardar el archivo manualmente.', 'warn');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOSTRAR RESULTADO
+══════════════════════════════════════════════════════════════ */
+function showResult(success, totalDown, found, pages, errorMsg) {
+  hide('panel-progress');
+  show('panel-result');
+
+  if (success) {
+    show('result-success');
+    hide('result-error');
+    document.getElementById('result-title').textContent = 'Sincronización completada con éxito';
+    document.getElementById('result-sub').textContent =
+      `${found.toLocaleString('es')} medicamentos de perros/gatos encontrados en ${totalDown.toLocaleString('es')} descargados`;
+    show('result-stats');
+    document.getElementById('stat-found').textContent = found.toLocaleString('es');
+    document.getElementById('stat-total').textContent = totalDown.toLocaleString('es');
+    document.getElementById('stat-pages').textContent = pages;
+    renderSample();
+    show('btn-export');
+  } else if (errorMsg && errorMsg.toLowerCase().includes('cors')) {
+    showCorsError(errorMsg);
+  } else {
+    if (found > 0) {
+      show('result-success');
+      document.getElementById('result-title').textContent = 'Descarga parcial guardada';
+      document.getElementById('result-sub').textContent =
+        `${found} medicamentos guardados · ${errorMsg || 'Detenido manualmente'}`;
+      show('result-stats');
+      document.getElementById('stat-found').textContent = found;
+      document.getElementById('stat-total').textContent = totalDown;
+      document.getElementById('stat-pages').textContent = pages;
+      renderSample();
+    }
+    if (errorMsg) {
+      show('result-error');
+      document.getElementById('error-body').textContent = errorMsg;
+    }
+  }
+}
+
+function showCorsError(msg) {
+  hide('panel-progress');
+  show('panel-result');
+  hide('result-success');
+  show('result-error');
+  document.getElementById('error-body').innerHTML =
+    `La API de la AEMPS bloqueó la petición por política CORS (solo permite acceso desde cimavet.aemps.es).<br><br>
+    <strong>Solución:</strong> ejecuta el script Python incluido en el proyecto:<br>
+    <code>python scripts/fetch_aemps.py</code><br><br>
+    El script guardará <code>static/vademecum_base.json</code> que VetDose cargará automáticamente.<br><br>
+    <small style="color:#7f1d1d">Error técnico: ${msg}</small>`;
+  show('cors-help');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MUESTRA DE DATOS
+══════════════════════════════════════════════════════════════ */
+function renderSample() {
+  if (!resultData.length) return;
+  show('result-sample-section');
+  const tbody = document.getElementById('sample-tbody');
+  tbody.innerHTML = '';
+  resultData.slice(0, 5).forEach(m => {
+    const isDog = /perro|canino/i.test(m.nombre);
+    const isCat = /gato|felino/i.test(m.nombre);
+    const isRx  = /prescripci/i.test(m.dispensacion);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td title="${m.id}">${m.id}</td>
+      <td title="${m.nombre}">${m.nombre.substring(0, 35)}${m.nombre.length > 35 ? '…' : ''}</td>
+      <td title="${m.pactivos}">${m.pactivos.substring(0, 20)}${m.pactivos.length > 20 ? '…' : ''}</td>
+      <td>${m.viasAdministracion.substring(0, 18)}</td>
+      <td>
+        ${isDog ? '<span class="pill pill-dog">🐕</span>' : ''}
+        ${isCat ? '<span class="pill pill-cat">🐈</span>' : ''}
+        ${isRx  ? '<span class="pill pill-rx">Rx</span>' : '<span class="pill pill-otc">OTC</span>'}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EXPORTAR JSON
+══════════════════════════════════════════════════════════════ */
+function exportJSON() {
+  if (!resultData.length) return;
+  const json  = JSON.stringify(resultData, null, 2);
+  const blob  = new Blob([json], { type: 'application/json' });
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href      = url;
+  a.download  = `vademecum_base_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONTROLES
+══════════════════════════════════════════════════════════════ */
+function stopSync() {
+  shouldStop = true;
+  document.getElementById('btn-stop').disabled = true;
+  document.getElementById('btn-stop').textContent = 'Deteniendo…';
+  log('⏸ Señal de parada enviada — finalizando página actual…', 'warn');
+}
+
+function resetSync() {
+  resultData = [];
+  hide('panel-result');
+  show('panel-initial');
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-bar').classList.remove('done');
+  document.getElementById('progress-pct').classList.remove('done');
+  document.getElementById('btn-stop').disabled = false;
+  document.getElementById('btn-stop').textContent = '⏹ Detener descarga';
+  // Recomprobar storage
+  const existing = localStorage.getItem(STORAGE_KEY);
+  if (existing) {
+    try {
+      const p = JSON.parse(existing);
+      document.getElementById('storage-status').textContent = `${p.length} registros guardados`;
+    } catch { document.getElementById('storage-status').textContent = 'Error al leer'; }
+  }
+}
+
+/* ── Init ── */
+init();
+</script>
+</body>
+</html>

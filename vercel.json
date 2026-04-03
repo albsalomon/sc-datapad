@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "routes": [
+    { "src": "/sw\\.js",       "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Service-Worker-Allowed": "/" }, "dest": "/sw.js" },
+    { "src": "/manifest\\.json","headers": { "Content-Type": "application/manifest+json" }, "dest": "/manifest.json" },
+    { "src": "/(.*)",           "dest": "/$1" }
+  ]
+}

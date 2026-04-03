@@ -1,0 +1,39 @@
+{
+  "name": "VetDose — Dosificación Veterinaria",
+  "short_name": "VetDose",
+  "description": "Calculadora de dosis para perros y gatos. Datos AEMPS.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2563eb",
+  "background_color": "#f1f5f9",
+  "lang": "es",
+  "categories": ["medical", "health"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Calculadora",
+      "url": "./index.html",
+      "description": "Calcular dosis"
+    },
+    {
+      "name": "Vademécum",
+      "url": "./static/vademecum_admin.html",
+      "description": "Gestión de vademécum"
+    }
+  ]
+}

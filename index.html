@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>VetDose — Dosificación para Perros y Gatos</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="VetDose">
+  <meta name="description" content="Calculadora de dosis veterinarias para perros y gatos. Base AEMPS.">
+
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Configuración Supabase -->
+  <script src="supabase-config.js"></script>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Estilos adicionales (PWA toast, admin link, offline banner) -->
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    :root {
+      --blue:    #2563eb; --blue-light: #dbeafe; --blue-dark: #1d4ed8;
+      --violet:  #7c3aed;
+      --green:   #10b981; --green-light: #d1fae5;
+      --amber:   #f59e0b; --amber-light: #fef3c7; --amber-bg: #fffbeb;
+      --red:     #dc2626;
+      --slate:   #f1f5f9;
+      --white:   #ffffff;
+      --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+      --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563;
+      --gray-700: #374151; --gray-800: #1f2937;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+           background: var(--slate); min-height: 100vh; font-size: 14px; color: var(--gray-800); }
+
+    /* ── Layout ── */
+    .max-w  { max-width: 512px; margin: 0 auto; padding: 0 16px; }
+    .card   { background: var(--white); border-radius: 16px; border: 1px solid var(--gray-200);
+              box-shadow: 0 1px 3px rgba(0,0,0,.07); padding: 20px; }
+    .space-y > * + * { margin-top: 12px; }
+    .flex   { display: flex; }
+    .flex-1 { flex: 1; }
+    .gap-2  { gap: 8px; }
+    .gap-3  { gap: 12px; }
+    .items-center { align-items: center; }
+    .items-start  { align-items: flex-start; }
+    .justify-between { justify-content: space-between; }
+    .flex-wrap { flex-wrap: wrap; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+    /* ── Typography ── */
+    .text-xs   { font-size: 11px; } .text-sm { font-size: 13px; }
+    .text-base { font-size: 14px; } .text-lg { font-size: 18px; }
+    .text-xl   { font-size: 20px; } .text-2xl { font-size: 24px; }
+    .text-3xl  { font-size: 30px; }
+    .font-medium { font-weight: 500; } .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; } .font-extrabold { font-weight: 800; }
+    .tracking-wide { letter-spacing: .05em; }
+    .tracking-wider { letter-spacing: .1em; }
+    .tracking-widest { letter-spacing: .15em; }
+    .uppercase { text-transform: uppercase; }
+    .leading-none { line-height: 1; }
+    .leading-snug { line-height: 1.4; }
+    .leading-relaxed { line-height: 1.7; }
+    .text-center { text-align: center; }
+    .text-right  { text-align: right; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Colors ── */
+    .text-white      { color: #fff; }
+    .text-blue       { color: var(--blue); }
+    .text-blue-light { color: #93c5fd; }
+    .text-blue-200   { color: #bfdbfe; }
+    .text-green      { color: var(--green); }
+    .text-amber      { color: var(--amber); }
+    .text-amber-dark { color: #92400e; }
+    .text-red        { color: var(--red); }
+    .text-gray-4 { color: var(--gray-400); }
+    .text-gray-5 { color: var(--gray-500); }
+    .text-gray-6 { color: var(--gray-600); }
+    .text-gray-7 { color: var(--gray-700); }
+    .text-gray-8 { color: var(--gray-800); }
+    .text-violet { color: var(--violet); }
+
+    /* ── Header ── */
+    .header {
+      background: var(--white); border-bottom: 1px solid var(--gray-100);
+      position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .header-inner { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .logo-box {
+      width: 36px; height: 36px; background: var(--blue); border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(37,99,235,.3); flex-shrink: 0;
+      font-weight: 800; font-size: 13px; color: #fff; letter-spacing: -.02em;
+    }
+    .header-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--gray-50); border: 1px solid var(--gray-200);
+      border-radius: 8px; padding: 6px 12px; font-size: 12px;
+    }
+
+    /* ── Progress ── */
+    .progress { padding: 12px 16px 4px; }
+    .progress-inner { display: flex; align-items: center; gap: 6px; }
+    .step-badge {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .step-badge.done   { background: var(--green);  color: #fff; }
+    .step-badge.active { background: var(--blue);   color: #fff; }
+    .step-badge.idle   { background: var(--gray-200); color: var(--gray-400); }
+    .step-label { font-size: 12px; font-weight: 600; }
+    .step-label.done   { color: #059669; }
+    .step-label.active { color: var(--blue); }
+    .step-label.idle   { color: var(--gray-400); }
+    .step-line { flex: 1; height: 2px; border-radius: 2px; }
+    .step-line.done   { background: #6ee7b7; }
+    .step-line.active { background: #bfdbfe; }
+    .step-line.idle   { background: var(--gray-200); }
+
+    /* ── Species buttons ── */
+    .species-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 20px 12px; border-radius: 16px; border: 2px solid var(--gray-200);
+      cursor: pointer; background: var(--white); font-size: 13px; font-weight: 600;
+      letter-spacing: .05em; transition: all .18s; color: var(--gray-400);
+    }
+    .species-btn:hover { border-color: #93c5fd; background: #eff6ff; }
+    .species-btn.sel-dog { background: var(--blue); border-color: var(--blue); color: #fff;
+                           box-shadow: 0 4px 14px rgba(37,99,235,.3); }
+    .species-btn.sel-cat { background: var(--violet); border-color: var(--violet); color: #fff;
+                           box-shadow: 0 4px 14px rgba(124,58,237,.3); }
+    .species-emoji { font-size: 28px; }
+
+    /* ── Weight ── */
+    input[type=range] {
+      -webkit-appearance: none; appearance: none; width: 100%;
+      height: 6px; border-radius: 3px; outline: none; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+      background: var(--blue); cursor: pointer; border: 2px solid #fff;
+      box-shadow: 0 2px 6px rgba(37,99,235,.35);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 22px; height: 22px; border-radius: 50%; background: var(--blue);
+      border: 2px solid #fff; cursor: pointer;
+    }
+    .slider-labels { display: flex; justify-content: space-between; font-size: 10px;
+                     color: var(--gray-400); margin-top: 4px; padding: 0 2px; }
+    .num-input {
+      width: 72px; text-align: right; font-weight: 700; font-size: 22px;
+      color: var(--blue); background: transparent; border: none;
+      border-bottom: 2px solid #93c5fd; outline: none;
+    }
+    .num-input:focus { border-bottom-color: var(--blue); }
+    .quick-btn {
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--gray-200); cursor: pointer; background: var(--white);
+      color: var(--gray-500); transition: all .12s;
+    }
+    .quick-btn:hover { border-color: #93c5fd; color: var(--blue); }
+    .quick-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+    /* ── Drug search ── */
+    .search-wrap { position: relative; }
+    .search-input {
+      width: 100%; padding: 12px 36px 12px 40px; border-radius: 12px;
+      border: 1px solid var(--gray-200); font-size: 13px; font-family: inherit;
+      outline: none; transition: border .15s, box-shadow .15s; background: var(--white);
+    }
+    .search-input:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+                   color: var(--gray-400); pointer-events: none; }
+    .search-clear {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--gray-400);
+      font-size: 18px; line-height: 1; padding: 2px 4px;
+    }
+    .search-clear:hover { color: var(--gray-700); }
+    .drug-list { max-height: 280px; overflow-y: auto; margin-top: 10px;
+                 border-radius: 12px; }
+    .drug-list::-webkit-scrollbar { width: 4px; }
+    .drug-list::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+    .drug-row {
+      width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px;
+      border: 1px solid var(--gray-200); cursor: pointer; background: var(--white);
+      font-family: inherit; margin-bottom: 6px; transition: transform .1s, border-color .1s;
+      display: block;
+    }
+    .drug-row:hover:not(:disabled) { transform: translateX(3px); border-color: #93c5fd; background: #eff6ff; }
+    .drug-row.selected { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .drug-row.unavail  { opacity: .35; cursor: not-allowed; }
+    .drug-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .drug-row-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .cat-pill {
+      font-size: 10px; padding: 2px 8px; border-radius: 20px; border: 1px solid;
+      font-weight: 500; white-space: nowrap; flex-shrink: 0;
+    }
+    .drug-row-sub { font-size: 11px; margin-top: 2px; color: var(--gray-400); }
+    .drug-row.selected .drug-row-sub { color: #bfdbfe; }
+    .drug-empty { text-align: center; padding: 36px; color: var(--gray-400); font-size: 13px; }
+
+    /* ── Result ── */
+    .result-header-blue   { background: #eff6ff; border-bottom: 1px solid #bfdbfe; }
+    .result-header-amber  { background: var(--amber-bg); border-bottom: 1px solid #fde68a; }
+    .result-top { padding: 16px 20px; display: flex; align-items: flex-start;
+                  justify-content: space-between; gap: 12px; }
+    .pres-section { padding: 16px 20px; border-bottom: 1px solid var(--gray-100); }
+    .pres-label { font-size: 10px; font-weight: 700; color: var(--gray-400);
+                  text-transform: uppercase; letter-spacing: .15em; margin-bottom: 8px; }
+    .pres-option {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+      border-radius: 10px; border: 1px solid var(--gray-200); cursor: pointer;
+      margin-bottom: 8px; background: var(--gray-50); transition: border .12s, background .12s;
+    }
+    .pres-option:last-child { margin-bottom: 0; }
+    .pres-option:hover  { border-color: #93c5fd; background: #eff6ff; }
+    .pres-option.active { border-color: #93c5fd; background: #eff6ff; }
+    .pres-option input[type=radio] { accent-color: var(--blue); width: 16px; height: 16px; }
+    .calc-section { padding: 20px; }
+    .calc-label { font-size: 10px; font-weight: 700; color: var(--gray-400);
+                  text-transform: uppercase; letter-spacing: .15em; margin-bottom: 12px; }
+    .stat-box { border-radius: 12px; padding: 14px; border: 1px solid; }
+    .stat-box-blue  { background: #eff6ff; border-color: #bfdbfe; }
+    .stat-box-green { background: var(--green-light); border-color: #a7f3d0; }
+    .stat-box-label { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+    .hero-card {
+      border-radius: 16px; padding: 20px;
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: #fff; text-align: center;
+      box-shadow: 0 4px 16px rgba(37,99,235,.25); margin-top: 12px;
+    }
+    .hero-label { font-size: 10px; font-weight: 600; color: #bfdbfe;
+                  text-transform: uppercase; letter-spacing: .15em; margin-bottom: 4px; }
+    .hero-value { font-size: 32px; font-weight: 800; line-height: 1; }
+    .hero-sub   { font-size: 12px; color: #bfdbfe; margin-top: 8px; }
+    .hero-badge {
+      display: inline-block; margin-top: 12px; background: rgba(255,255,255,.15);
+      border-radius: 8px; padding: 6px 16px; font-size: 13px; font-weight: 500;
+    }
+    .alert-card { background: var(--amber-bg); border-radius: 16px; border: 1px solid #fde68a; overflow: hidden; }
+    .alert-header { display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+                    background: #fef3c7; border-bottom: 1px solid #fde68a; }
+    .alert-list { padding: 12px 20px; }
+    .alert-item { display: flex; gap: 8px; font-size: 13px; color: #92400e;
+                  line-height: 1.5; margin-bottom: 8px; }
+    .alert-item:last-child { margin-bottom: 0; }
+    .notes-card  { background: var(--white); border-radius: 16px; border: 1px solid var(--gray-200); overflow: hidden; }
+    .notes-header { display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+                    background: var(--gray-50); border-bottom: 1px solid var(--gray-100); }
+    .notes-body  { padding: 16px 20px; font-size: 13px; color: var(--gray-600); line-height: 1.7; }
+    .fade-up { animation: fadeUp .22s ease-out both; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+
+    /* ── Misc ── */
+    .step-title { font-size: 13px; font-weight: 700; color: var(--gray-700);
+                  display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .mt-4  { margin-top: 16px; }
+    .mt-3  { margin-top: 12px; }
+    .mt-1  { margin-top: 4px; }
+    .mb-3  { margin-bottom: 12px; }
+    .opacity-40 { opacity: .4; pointer-events: none; }
+    .disclaimer { text-align: center; font-size: 11px; color: var(--gray-400);
+                  line-height: 1.6; padding: 8px 16px 0; }
+    svg { display: inline-block; vertical-align: middle; }
+  </style>
+</head>
+<body>
+
+<!-- Offline banner (visible cuando body.offline) -->
+<div id="offline-banner">⚡ Sin conexión — mostrando datos en caché</div>
+
+<div id="app"></div>
+
+<!-- PWA install toast -->
+<div id="pwa-toast" style="display:none">
+  <span>Instala VetDose como app</span>
+  <button id="pwa-install-btn">Instalar</button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BASE DE DATOS
+══════════════════════════════════════════════════════════════ */
+const FARMACOS = [
+  {
+    id:1, nombre:"Amoxicilina", categoria:"Antibiótico", especie:"ambos",
+    dosis:{perro:{min:10,max:20},gato:{min:10,max:20}},
+    frecuencia:{perro:"cada 12 horas",gato:"cada 12 horas"},
+    duracion:"7–14 días", via:"Oral",
+    presentaciones:[
+      {id:"amx1",label:"Suspensión 50 mg/ml",  mg_unidad:50,  unidad:"ml"},
+      {id:"amx2",label:"Comprimido 250 mg",    mg_unidad:250, unidad:"comprimido"},
+      {id:"amx3",label:"Comprimido 500 mg",    mg_unidad:500, unidad:"comprimido"},
+    ],
+    notas:"Antibiótico betalactámico de amplio espectro. Administrar preferiblemente con alimento. No usar en animales con hipersensibilidad a penicilinas.",
+    alertas:[]
+  },
+  {
+    id:2, nombre:"Meloxicam", categoria:"AINE", especie:"ambos",
+    dosis:{perro:{min:0.1,max:0.2},gato:{min:0.05,max:0.1}},
+    frecuencia:{perro:"cada 24 horas",gato:"cada 48 horas"},
+    duracion:"Mínimo tiempo necesario", via:"Oral / SC",
+    presentaciones:[
+      {id:"mel1",label:"Suspensión 1.5 mg/ml (perro)", mg_unidad:1.5, unidad:"ml"},
+      {id:"mel2",label:"Suspensión 0.5 mg/ml (felino)",mg_unidad:0.5, unidad:"ml"},
+    ],
+    notas:"AINE de referencia. Siempre con comida. En gatos los intervalos son más largos por su metabolismo hepático. Monitorizar función renal en tratamientos prolongados.",
+    alertas:[
+      "⛔ NO usar en gatas gestantes ni lactantes",
+      "⚠️ Riesgo de nefrotoxicidad — hidratar bien al paciente",
+      "⚠️ Contraindicado junto a corticoides u otros AINEs",
+      "⚠️ No usar en insuficiencia renal, hepática o cardíaca"
+    ]
+  },
+  {
+    id:3, nombre:"Omeprazol", categoria:"Protector gástrico", especie:"ambos",
+    dosis:{perro:{min:0.5,max:1.0},gato:{min:0.7,max:1.0}},
+    frecuencia:{perro:"cada 24 horas",gato:"cada 24 horas"},
+    duracion:"4–8 semanas", via:"Oral",
+    presentaciones:[
+      {id:"ome1",label:"Cápsula 20 mg",mg_unidad:20,unidad:"cápsula"},
+      {id:"ome2",label:"Cápsula 40 mg",mg_unidad:40,unidad:"cápsula"},
+    ],
+    notas:"IBP. Administrar 30 min antes de la comida para máxima eficacia. No triturar cápsulas de liberación entérica. Primera elección en úlceras y gastropatía por AINEs.",
+    alertas:[]
+  },
+  {
+    id:4, nombre:"Metronidazol", categoria:"Antibiótico / Antiprotozoario", especie:"ambos",
+    dosis:{perro:{min:10,max:15},gato:{min:10,max:15}},
+    frecuencia:{perro:"cada 12 horas",gato:"cada 12 horas"},
+    duracion:"5–7 días", via:"Oral",
+    presentaciones:[
+      {id:"met1",label:"Comprimido 250 mg",   mg_unidad:250,unidad:"comprimido"},
+      {id:"met2",label:"Suspensión 40 mg/ml", mg_unidad:40, unidad:"ml"},
+    ],
+    notas:"Eficaz contra bacterias anaerobias y protozoos (Giardia, Tritrichomonas). Puede causar anorexia y vómitos. El comprimido puede esconderse en el alimento.",
+    alertas:[
+      "⛔ Evitar en el primer trimestre de gestación",
+      "⚠️ A dosis altas puede producir signos neurológicos (ataxia, nistagmo)"
+    ]
+  },
+  {
+    id:5, nombre:"Cefalexina", categoria:"Antibiótico", especie:"ambos",
+    dosis:{perro:{min:15,max:30},gato:{min:15,max:25}},
+    frecuencia:{perro:"cada 8–12 horas",gato:"cada 12 horas"},
+    duracion:"7–28 días (piodermia: mín. 3–4 sem.)", via:"Oral",
+    presentaciones:[
+      {id:"cef1",label:"Comprimido 500 mg",   mg_unidad:500,unidad:"comprimido"},
+      {id:"cef2",label:"Suspensión 25 mg/ml", mg_unidad:25, unidad:"ml"},
+    ],
+    notas:"Cefalosporina de 1.ª generación. Muy indicada en infecciones cutáneas, urinarias y óseas. Buena tolerancia oral con o sin alimento.",
+    alertas:["⚠️ Precaución en animales con alergia documentada a betalactámicos"]
+  },
+  {
+    id:6, nombre:"Enrofloxacino", categoria:"Fluoroquinolona", especie:"ambos",
+    dosis:{perro:{min:5,max:20},gato:{min:2.5,max:5}},
+    frecuencia:{perro:"cada 24 horas",gato:"cada 24 horas"},
+    duracion:"7–10 días", via:"Oral / IM / IV",
+    presentaciones:[
+      {id:"enr1",label:"Comprimido 50 mg",  mg_unidad:50, unidad:"comprimido"},
+      {id:"enr2",label:"Comprimido 150 mg", mg_unidad:150,unidad:"comprimido"},
+      {id:"enr3",label:"Solución 50 mg/ml", mg_unidad:50, unidad:"ml"},
+    ],
+    notas:"Fluoroquinolona de amplio espectro. Eficaz en infecciones urinarias, respiratorias y de tejidos blandos. Usar solo cuando el antibiograma lo justifique.",
+    alertas:[
+      "🚨 EN GATOS: NO superar 5 mg/kg/día — dosis mayores causan ceguera irreversible",
+      "⛔ No usar en animales jóvenes en crecimiento (daño cartilaginoso)",
+      "⚠️ Reservar su uso para evitar resistencias"
+    ]
+  },
+  {
+    id:7, nombre:"Prednisolona", categoria:"Corticoide", especie:"ambos",
+    dosis:{perro:{min:0.5,max:2.0},gato:{min:1.0,max:2.0}},
+    frecuencia:{perro:"cada 12–24 horas",gato:"cada 12–24 horas"},
+    duracion:"Reducir gradualmente", via:"Oral",
+    presentaciones:[
+      {id:"pre1",label:"Comprimido 5 mg", mg_unidad:5, unidad:"comprimido"},
+      {id:"pre2",label:"Comprimido 20 mg",mg_unidad:20,unidad:"comprimido"},
+    ],
+    notas:"Glucocorticoide sistémico. Los gatos requieren dosis más altas. Usar la dosis mínima eficaz. Valorar protección gástrica concomitante.",
+    alertas:[
+      "🚨 Nunca suspender bruscamente — reducir dosis de forma escalonada",
+      "⛔ No combinar con AINEs — alto riesgo de úlcera gastrointestinal grave",
+      "⚠️ Contraindicado en infecciones activas sin cobertura antibiótica"
+    ]
+  },
+  {
+    id:8, nombre:"Tramadol", categoria:"Analgésico opioide", especie:"ambos",
+    dosis:{perro:{min:2,max:5},gato:{min:1,max:4}},
+    frecuencia:{perro:"cada 8–12 horas",gato:"cada 12 horas"},
+    duracion:"Según protocolo de dolor", via:"Oral",
+    presentaciones:[
+      {id:"tra1",label:"Comprimido 50 mg", mg_unidad:50, unidad:"comprimido"},
+      {id:"tra2",label:"Comprimido 100 mg",mg_unidad:100,unidad:"comprimido"},
+    ],
+    notas:"Opioide de acción central. Útil en dolor postoperatorio y crónico. Los gatos metabolizan el tramadol de forma diferente y pueden presentar disforia.",
+    alertas:[
+      "⚠️ En gatos puede causar disforia, excitación o salivación excesiva — monitorizar",
+      "⛔ No combinar con IMAOs ni serotonérgicos (riesgo de síndrome serotoninérgico)",
+      "⚠️ Precaución en pacientes epilépticos"
+    ]
+  },
+  {
+    id:9, nombre:"Furosemida", categoria:"Diurético", especie:"ambos",
+    dosis:{perro:{min:1,max:4},gato:{min:1,max:2}},
+    frecuencia:{perro:"cada 8–12 horas",gato:"cada 8–24 horas"},
+    duracion:"Según respuesta clínica", via:"Oral / IM / IV",
+    presentaciones:[
+      {id:"fur1",label:"Comprimido 40 mg",            mg_unidad:40,unidad:"comprimido"},
+      {id:"fur2",label:"Solución inyectable 10 mg/ml",mg_unidad:10,unidad:"ml"},
+    ],
+    notas:"Diurético de asa de alta eficacia. Fundamental en edema pulmonar y ascitis. Garantizar acceso libre a agua. Monitorizar electrolitos regularmente.",
+    alertas:[
+      "⚠️ Riesgo de deshidratación e hipopotasemia",
+      "⚠️ Monitorizar potasio — valorar suplementación con KCl si tratamiento prolongado",
+      "⛔ Contraindicado en insuficiencia renal grave oligúrica / anúrica"
+    ]
+  },
+  {
+    id:10, nombre:"Doxiciclina", categoria:"Tetraciclina", especie:"ambos",
+    dosis:{perro:{min:5,max:10},gato:{min:5,max:10}},
+    frecuencia:{perro:"cada 12–24 horas",gato:"cada 24 horas"},
+    duracion:"7–21 días (Ehrlichia: 28 días)", via:"Oral",
+    presentaciones:[
+      {id:"dox1",label:"Comprimido 100 mg",  mg_unidad:100,unidad:"comprimido"},
+      {id:"dox2",label:"Suspensión 10 mg/ml",mg_unidad:10, unidad:"ml"},
+    ],
+    notas:"Primera elección en enfermedades transmitidas por garrapatas (Ehrlichia, Anaplasma, Rickettsia). Administrar con alimento y seguido de agua.",
+    alertas:[
+      "🚨 En gatos: dar seguido de jeringazo de agua — riesgo de esofagitis por retención",
+      "⛔ No usar en hembras gestantes ni en cachorros/gatitos (alteración del esmalte)"
+    ]
+  },
+  {
+    id:11, nombre:"Maropitant (Cerenia®)", categoria:"Antiemético", especie:"ambos",
+    dosis:{perro:{min:1,max:2},gato:{min:1,max:1}},
+    frecuencia:{perro:"cada 24 horas",gato:"cada 24 horas"},
+    duracion:"Hasta 5 días consecutivos", via:"Oral / SC",
+    presentaciones:[
+      {id:"mar1",label:"Comprimido 16 mg",            mg_unidad:16, unidad:"comprimido"},
+      {id:"mar2",label:"Comprimido 60 mg",            mg_unidad:60, unidad:"comprimido"},
+      {id:"mar3",label:"Solución inyectable 10 mg/ml",mg_unidad:10, unidad:"ml"},
+    ],
+    notas:"Antagonista NK1 de referencia. Eficaz en vómitos de diversa etiología y mareo de movimiento. El comprimido puede refrigerarse para facilitar la deglución en gatos.",
+    alertas:[
+      "⛔ No usar en animales menores de 8 semanas",
+      "⚠️ Puede producir sedación leve"
+    ]
+  },
+  {
+    id:12, nombre:"Ácido Ursodesoxicólico", categoria:"Hepatoprotector", especie:"ambos",
+    dosis:{perro:{min:10,max:15},gato:{min:10,max:15}},
+    frecuencia:{perro:"cada 24 horas",gato:"cada 24 horas"},
+    duracion:"Largo plazo según evolución", via:"Oral",
+    presentaciones:[
+      {id:"urs1",label:"Cápsula 250 mg",mg_unidad:250,unidad:"cápsula"},
+      {id:"urs2",label:"Cápsula 150 mg",mg_unidad:150,unidad:"cápsula"},
+    ],
+    notas:"Ácido biliar con efecto hepatoprotector, colerético e inmunomodulador. Indicado en hepatopatías crónicas, colangitis y colestasis. Bien tolerado a largo plazo. Administrar con la comida.",
+    alertas:[]
+  },
+];
+
+/* ═══════════════════════════════════════════════════════════
+   AEMPS — fármacos adicionales (cargados async)
+══════════════════════════════════════════════════════════════ */
+let FARMACOS_EXT = [];
+function getAllFarmacos() { return [...FARMACOS, ...FARMACOS_EXT]; }
+
+function _extractConc(nombre) {
+  const n = (nombre||'').replace(/,/g,'.');
+  const m = /(\d+\.?\d*)\s*(mg|mcg|g)\s*\/\s*ml/i.exec(n);
+  if (m) return { valor: parseFloat(m[1]), unidad: m[2].toLowerCase()+'/ml' };
+  return null;
+}
+
+function _detectCat(base) {
+  const p = (base.pactivos||'').toUpperCase();
+  if (base.antibiotico) return 'Antibiótico';
+  if (/MELOXICAM|CARPROFENO|ROBENACOXIB|KETOPROFENO|MAVACOXIB|TOLFENÁM/.test(p)) return 'AINE';
+  if (/PREDNISOLON|DEXAMETASON|BETAMETASON|TRIAMCINOLON/.test(p)) return 'Corticoide';
+  if (/FUROSEMIDA|TORASEMIDA|ESPIRONOLACTON/.test(p)) return 'Diurético';
+  if (/TRAMADOL|BUTORFANOL|BUPRENORFIN|METADON/.test(p)) return 'Analgésico opioide';
+  if (/MAROPITANT|METOCLOPRAMIDA|ONDANSETR|DOLASETRON/.test(p)) return 'Antiemético';
+  if (/OMEPRAZOL|RANITIDINA|FAMOTIDINA|PANTOPRAZOL/.test(p)) return 'Protector gástrico';
+  if (/URSODIOL|URSODESOXICOL|SILIMARINA/.test(p)) return 'Hepatoprotector';
+  return 'AEMPS';
+}
+
+function _buildPresentaciones(products) {
+  const seen = new Set(), result = [];
+  products.forEach(p => {
+    const c = _extractConc(p.nombre);
+    if (c) {
+      const key = `${c.valor}_${c.unidad}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const solid = /comprimido|c[aá]psula|tableta/i.test(p.nombre);
+        result.push({
+          id: 'pres_'+key.replace(/[^a-z0-9]/g,'_'),
+          label: `${c.valor} ${c.unidad}`,
+          mg_unidad: c.valor,
+          unidad: solid ? (/c[aá]psula/i.test(p.nombre)?'cápsula':'comprimido') : 'ml',
+          dosis_perro: p.dosis?.perro||null,
+          dosis_gato:  p.dosis?.gato||null,
+        });
+      }
+    }
+  });
+  if (!result.length) result.push({
+    id:'pres_generic', label:'Según ficha técnica', mg_unidad:null, unidad:'ml',
+    dosis_perro: products[0]?.dosis?.perro||null,
+    dosis_gato:  products[0]?.dosis?.gato||null,
+  });
+  return result;
+}
+
+async function loadAEMPS() {
+  try {
+    const [dr, br] = await Promise.all([
+      fetch('./static/vademecum_dosis.json'), fetch('./static/vademecum_base.json')
+    ]);
+    if (!dr.ok || !br.ok) return;
+    const dosisArr = await dr.json();
+    const baseArr  = await br.json();
+    const baseMap = {};
+    baseArr.forEach(d => { baseMap[d.id] = d; });
+
+    const groups = {};
+    dosisArr.forEach(entry => {
+      if (!entry.dosis?.perro && !entry.dosis?.gato) return;
+      const base = baseMap[entry.id]; if (!base) return;
+      const pact = (base.pactivos || entry.nombre).toUpperCase().split(/[;+]/)[0].trim();
+      if (!groups[pact]) groups[pact] = { pactivos: pact, products: [], base };
+      groups[pact].products.push({ ...entry, base });
+    });
+
+    // Construir mapa pactivos → nombres comerciales desde la base completa (1588 drugs)
+    function _extractNC(nombreCompleto) {
+      const raw = (nombreCompleto || '').trim();
+      const m = /^([^\d]+?)\s+[\d,.]/.exec(raw);
+      return (m ? m[1] : raw.split(/\s+/).slice(0,2).join(' ')).trim().toUpperCase();
+    }
+    const ncByPact = {};
+    baseArr.forEach(drug => {
+      if (!drug.pactivos) return;
+      const pact = drug.pactivos.toUpperCase().split(/[;+]/)[0].trim();
+      if (!ncByPact[pact]) ncByPact[pact] = new Set();
+      const nc = _extractNC(drug.nombre);
+      if (nc && nc.length > 1) ncByPact[pact].add(nc);
+    });
+
+    // Inyectar nombres comerciales en fármacos internos
+    FARMACOS.forEach(f => {
+      if (!f.nombres_comerciales) f.nombres_comerciales = [];
+      const fn = f.nombre.toLowerCase();
+      Object.entries(ncByPact).forEach(([pact, ncs]) => {
+        const p = pact.toLowerCase();
+        if (p.startsWith(fn) || fn.startsWith(p.split(' ')[0])) {
+          ncs.forEach(nc => {
+            if (!f.nombres_comerciales.includes(nc)) f.nombres_comerciales.push(nc);
+          });
+        }
+      });
+    });
+
+    FARMACOS_EXT = Object.values(groups)
+      .filter(g => {
+        const p = g.pactivos.toLowerCase();
+        return !FARMACOS.some(f => {
+          const fn = f.nombre.toLowerCase();
+          return p.startsWith(fn) || fn.startsWith(p.split(' ')[0]);
+        });
+      })
+      .map((g, idx) => {
+        const first  = g.products[0];
+        const base   = first.base;
+        const dp = g.products.find(p => p.dosis?.perro)?.dosis?.perro || null;
+        const dg = g.products.find(p => p.dosis?.gato)?.dosis?.gato  || null;
+        const pres = _buildPresentaciones(g.products);
+        return {
+          id: `aemps_${idx}`,
+          nombre: g.pactivos,
+          categoria: _detectCat(base),
+          especie: dp && dg ? 'ambos' : dp ? 'perro' : 'gato',
+          dosis: {
+            perro: dp ? { min: dp.valor, max: dp.max||dp.valor, unidad: dp.unidad } : null,
+            gato:  dg ? { min: dg.valor, max: dg.max||dg.valor, unidad: dg.unidad } : null,
+          },
+          presentaciones: pres,
+          frecuencia: { perro: 'Ver ficha técnica', gato: 'Ver ficha técnica' },
+          duracion: '—',
+          via: base.viasAdministracion || '—',
+          fuente: 'aemps',
+          urlFicha: base.urlFicha || '',
+          posologia_raw: first.posologia_raw || '',
+          notas: first.posologia_raw?.slice(0, 500) || 'Consultar ficha técnica.',
+          alertas: base.antibiotico ? ['⚠️ Antibiótico — usar solo con diagnóstico y antibiograma cuando sea posible'] : [],
+          nombres_comerciales: [...(ncByPact[g.pactivos] || new Set())],
+        };
+      });
+
+    renderAll();
+  } catch(_) { /* sin datos AEMPS — funciona solo con FARMACOS internos */ }
+}
+
+const CAT_STYLE = {
+  "Antibiótico":              {bg:"#eff6ff",border:"#bfdbfe",color:"#1d4ed8"},
+  "Antibiótico / Antiprotozoario":{bg:"#eff6ff",border:"#bfdbfe",color:"#1d4ed8"},
+  "Fluoroquinolona":          {bg:"#fef2f2",border:"#fecaca",color:"#991b1b"},
+  "Tetraciclina":             {bg:"#eff6ff",border:"#bfdbfe",color:"#1d4ed8"},
+  "AINE":                     {bg:"#fffbeb",border:"#fde68a",color:"#92400e"},
+  "Corticoide":               {bg:"#fff7ed",border:"#fed7aa",color:"#9a3412"},
+  "Protector gástrico":       {bg:"#ecfdf5",border:"#a7f3d0",color:"#065f46"},
+  "Hepatoprotector":          {bg:"#ecfdf5",border:"#a7f3d0",color:"#065f46"},
+  "Diurético":                {bg:"#f0fdfa",border:"#99f6e4",color:"#0f766e"},
+  "Analgésico opioide":       {bg:"#faf5ff",border:"#e9d5ff",color:"#6b21a8"},
+  "Antiemético":              {bg:"#f0fdf4",border:"#bbf7d0",color:"#15803d"},
+};
+
+/* ═══════════════════════════════════════════════════════════
+   CÁLCULO PURO
+══════════════════════════════════════════════════════════════ */
+const r1 = n => Math.round(n * 10) / 10;
+const rQ = n => Math.round(n * 4) / 4;
+
+function calcDosis(f, esp, kg, p) {
+  const d = f.dosis[esp]; if (!d) return null;
+  const dMax = d.max || d.min;
+  const unidad = d.unidad || 'mg/kg';
+
+  if (unidad === 'ml/kg') {
+    const vMin = r1(kg * d.min), vMax = r1(kg * dMax);
+    return {
+      mgMin: null, mgMax: null,
+      admMin: vMin, admMax: vMax, admMed: r1((vMin+vMax)/2),
+      unidad: 'ml', label: p.label, frec: f.frecuencia[esp],
+      dosisLbl: d.min === dMax ? `${d.min} ml/kg` : `${d.min}–${dMax} ml/kg`,
+    };
+  }
+
+  const toAdm = mg => p.unidad === "ml"
+    ? r1(mg / p.mg_unidad)
+    : rQ(mg / p.mg_unidad);
+  const rMin = kg * d.min, rMax = kg * dMax;
+  return {
+    mgMin: r1(rMin), mgMax: r1(rMax),
+    admMin: toAdm(rMin), admMax: toAdm(rMax), admMed: toAdm((rMin+rMax)/2),
+    unidad: p.unidad, label: p.label, frec: f.frecuencia[esp],
+    dosisLbl: d.min === dMax ? `${d.min} ${unidad}` : `${d.min}–${dMax} ${unidad}`,
+  };
+}
+
+function fmtAdm(v, u) {
+  if (u === "ml") return `${v} ml`;
+  const w = Math.floor(v), f = rQ(v - w);
+  const fs = {0.25:"¼",0.5:"½",0.75:"¾"}[f] ?? "";
+  const n = u==="comprimido" ? `comprimido${v>1.25?"s":""}` :
+            u==="cápsula"    ? `cápsula${v>1.25?"s":""}` : u;
+  if (w===0) return `${fs} ${n}`.trim();
+  if (!fs)   return `${w} ${n}`;
+  return `${w} y ${fs} ${n}`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ESTADO
+══════════════════════════════════════════════════════════════ */
+const S = { especie:null, peso:10, query:"", drug:null, pres:null };
+
+/* ═══════════════════════════════════════════════════════════
+   ÍCONOS SVG
+══════════════════════════════════════════════════════════════ */
+const icoBase = `fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+const SVG = {
+  search:  `<svg ${icoBase} width="18" height="18" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+  alert:   `<svg ${icoBase} width="16" height="16" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+  info:    `<svg ${icoBase} width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`,
+  pill:    `<svg ${icoBase} width="18" height="18" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>`,
+  chevron: `<svg ${icoBase} width="14" height="14" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>`,
+  weight:  `<svg ${icoBase} width="18" height="18" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+};
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER HELPERS
+══════════════════════════════════════════════════════════════ */
+function stepBadge(n, done, active) {
+  const cls = done ? "done" : active ? "active" : "idle";
+  return `<span class="step-badge ${cls}">${done ? "✓" : n}</span>`;
+}
+
+function catPill(cat, selected) {
+  if (selected) return `<span class="cat-pill" style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">${cat}</span>`;
+  const s = CAT_STYLE[cat] || {bg:"#f3f4f6",border:"#e5e7eb",color:"#374151"};
+  return `<span class="cat-pill" style="background:${s.bg};border-color:${s.border};color:${s.color}">${cat}</span>`;
+}
+
+function buildSliderBg() {
+  const pct = ((S.peso - 0.5) / 79.5 * 100).toFixed(1);
+  return `linear-gradient(to right,#2563eb ${pct}%,#dbeafe ${pct}%)`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUILD SECTIONS
+══════════════════════════════════════════════════════════════ */
+function buildHeader() {
+  const dot = SB_STATE === 'online'
+    ? `<span title="Conectado a Supabase" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 0 2px #a7f3d0;display:inline-block;flex-shrink:0"></span>`
+    : SB_STATE === 'local'
+    ? `<span title="Modo local (sin Supabase)" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0"></span>`
+    : '';
+  return `
+  <header class="header">
+    <div class="max-w header-inner">
+      <div class="flex items-center gap-2" style="gap:10px">
+        <div class="logo-box">Vd</div>
+        <div>
+          <div class="font-extrabold text-gray-8" style="font-size:15px;line-height:1">VetDose</div>
+          <div class="text-xs text-gray-4" style="margin-top:2px;line-height:1">Guía de Dosificación · Perros y Gatos</div>
+        </div>
+      </div>
+      <div class="flex items-center" style="gap:8px">
+        ${dot}
+        <a href="static/vademecum_admin.html" class="admin-link">Vademécum</a>
+        ${S.especie ? `
+        <div class="header-badge">
+          <span>${S.especie==="perro"?"🐕":"🐈"}</span>
+          <span id="header-peso" class="font-bold text-gray-6">${S.peso} kg</span>
+        </div>` : ""}
+      </div>
+    </div>
+  </header>`;
+}
+
+function buildProgress() {
+  const s1 = !!S.especie, s2 = s1 && !!S.drug;
+  const steps = [
+    {lbl:"Especie",     done:s1,  active:!s1},
+    {lbl:"Peso + Fármaco", done:s2, active:s1&&!s2},
+    {lbl:"Resultado",   done:s2,  active:s2},
+  ];
+  return `
+  <div class="max-w progress">
+    <div class="progress-inner">
+      ${steps.map((st,i) => `
+        <div class="flex items-center gap-2" style="gap:6px">
+          ${stepBadge(i+1, st.done, st.active)}
+          <span class="step-label ${st.done?"done":st.active?"active":"idle"}" style="display:none;display:${['sm','md','lg'].includes('sm')?'':'none'}">${st.lbl}</span>
+        </div>
+        ${i<2 ? `<div class="step-line flex-1 ${st.done?"done":st.active?"active":"idle"}"></div>` : ""}
+      `).join("")}
+    </div>
+  </div>`;
+}
+
+function buildStep1() {
+  const s1 = !!S.especie;
+  return `
+  <div class="max-w" style="padding-top:12px">
+    <div class="card">
+      <div class="step-title">
+        ${stepBadge(1, s1, !s1)}
+        Selecciona la especie
+      </div>
+      <div class="flex gap-3">
+        <button class="species-btn ${S.especie==="perro"?"sel-dog":""}" onclick="doEspecie('perro')">
+          <span class="species-emoji">🐕</span>PERRO
+        </button>
+        <button class="species-btn ${S.especie==="gato"?"sel-cat":""}" onclick="doEspecie('gato')">
+          <span class="species-emoji">🐈</span>GATO
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildStep2() {
+  const s1 = !!S.especie, s2 = s1 && !!S.drug;
+  return `
+  <div class="max-w ${s1?"":"opacity-40"}">
+    <div class="card">
+      <div class="step-title">
+        ${stepBadge(2, s2, s1&&!s2)}
+        Introduce el peso
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 text-gray-6">${SVG.weight} <span class="font-semibold text-sm text-gray-7">Peso del paciente</span></div>
+          <div class="flex items-center gap-1">
+            <input id="num-peso" class="num-input" type="number" min="0.1" max="80" step="0.1" value="${S.peso}"
+              oninput="doNumPeso(this.value)" />
+            <span class="font-semibold text-gray-5" style="margin-left:4px">kg</span>
+          </div>
+        </div>
+        <input id="peso-slider" type="range" min="0.5" max="80" step="0.5" value="${S.peso}"
+          style="background:${buildSliderBg()}"
+          oninput="doSlider(this.value)" onchange="doSliderEnd(this.value)" />
+        <div class="slider-labels">
+          <span>0.5 kg</span><span>~2 kg</span><span>~35 kg</span><span>80 kg</span>
+        </div>
+        <div class="flex gap-2 flex-wrap mt-4">
+          ${[0.5,1,2,5,10,15,20,30,40,60].map(p=>`
+            <button data-qp="${p}" class="quick-btn ${S.peso===p?"active":""}" onclick="doQuickPeso(${p})">${p} kg</button>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildDrugList() {
+  const q = S.query.trim().toLowerCase();
+  const all = getAllFarmacos();
+  const list = q
+    ? all.filter(f =>
+        f.nombre.toLowerCase().includes(q) ||
+        f.categoria.toLowerCase().includes(q) ||
+        (f.pactivos||'').toLowerCase().includes(q) ||
+        (f.via||'').toLowerCase().includes(q) ||
+        (f.nombres_comerciales||[]).some(n => n.toLowerCase().includes(q)))
+    : all;
+  if (!list.length) return `<div class="drug-empty">Sin resultados para «${esc(S.query)}»</div>`;
+  return list.map(f => {
+    const ok  = f.especie==="ambos" || f.especie===S.especie;
+    const sel = String(S.drug?.id) === String(f.id);
+    const isAemps = !!f.fuente;
+    const aempsBadge = isAemps
+      ? `<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${sel?'rgba(255,255,255,.2)':'#dbeafe'};color:${sel?'#fff':'#1d4ed8'};font-weight:700;flex-shrink:0">AEMPS</span>`
+      : '';
+    return `
+      <button class="drug-row ${sel?"selected":""} ${!ok?"unavail":""}"
+        ${!ok?"disabled":""} onclick="${ok?`doDrug('${f.id}')`:""}" style="width:100%">
+        <div class="drug-row-top">
+          <div class="drug-row-left" style="min-width:0;gap:4px">
+            <span class="font-semibold text-sm truncate">${esc(f.nombre)}</span>
+            ${catPill(f.categoria, sel)}
+            ${aempsBadge}
+          </div>
+          <div class="flex items-center gap-1" style="flex-shrink:0">
+            ${(f.alertas||[]).length ? `<span style="color:${sel?"#fef08a":"#f59e0b"}">${SVG.alert}</span>` : ""}
+            ${!ok ? `<span class="text-xs text-gray-4">No ${S.especie}</span>`
+                  : `<span style="color:${sel?"#bfdbfe":"#d1d5db"}">${SVG.chevron}</span>`}
+          </div>
+        </div>
+        <div class="drug-row-sub">${esc(f.via)} · ${f.especie==="ambos"?"Perro y Gato":f.especie==="perro"?"Solo Perro":"Solo Gato"}</div>
+      </button>`;
+  }).join("");
+}
+
+function buildStep3() {
+  const s2 = !!S.drug;
+  return `
+  <div class="max-w">
+    <div class="card">
+      <div class="step-title">
+        ${stepBadge(3, s2, true)}
+        Selecciona el fármaco
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">${SVG.search}</span>
+        <input id="search-input" class="search-input" type="text" placeholder="Nombre, principio activo o categoría…"
+          value="${esc(S.query)}" oninput="doSearch(this.value)" autocomplete="off" />
+        ${S.query ? `<button class="search-clear" onclick="doClearSearch()">×</button>` : ""}
+      </div>
+      <div id="drug-list" class="drug-list">${buildDrugList()}</div>
+    </div>
+  </div>`;
+}
+
+function buildResult() {
+  if (!S.drug || !S.especie || !S.pres) return "";
+  const f   = S.drug;
+  const res = calcDosis(f, S.especie, S.peso, S.pres);
+  const hasAl = f.alertas.length > 0;
+
+  const presHtml = f.presentaciones.map(p => `
+    <label class="pres-option ${S.pres?.id===p.id?"active":""}">
+      <input type="radio" name="pres" value="${p.id}" ${S.pres?.id===p.id?"checked":""} onchange="doPres('${p.id}')">
+      <span class="text-sm text-gray-7">${esc(p.label)}</span>
+    </label>`).join("");
+
+  const calcHtml = res ? `
+    <div class="calc-section">
+      <div class="calc-label">Resultado · ${S.peso} kg · ${S.especie}</div>
+      <div class="grid-2" style="margin-bottom:12px">
+        <div class="stat-box stat-box-blue">
+          <div class="stat-box-label text-blue" style="font-size:11px">${res.mgMin===null?'Volumen calculado':'Dosis calculada'}</div>
+          <div class="font-bold text-blue" style="font-size:18px;line-height:1">
+            ${res.mgMin===null
+              ? (res.admMin===res.admMax ? `${res.admMin} ml` : `${res.admMin}–${res.admMax} ml`)
+              : (res.mgMin===res.mgMax   ? `${res.mgMin} mg`  : `${res.mgMin}–${res.mgMax} mg`)}
+          </div>
+          <div style="font-size:11px;color:#93c5fd;margin-top:4px">${res.dosisLbl}</div>
+        </div>
+        <div class="stat-box stat-box-green">
+          <div class="stat-box-label text-green" style="font-size:11px">Frecuencia</div>
+          <div class="font-bold text-green" style="font-size:14px;line-height:1.3">${esc(res.frec)}</div>
+          <div style="font-size:11px;color:#6ee7b7;margin-top:4px">${esc(f.duracion)}</div>
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="hero-label">Administrar</div>
+        <div class="hero-value">
+          ${res.admMin===res.admMax ? fmtAdm(res.admMed,res.unidad) : `${fmtAdm(res.admMin,res.unidad)} – ${fmtAdm(res.admMax,res.unidad)}`}
+        </div>
+        <div class="hero-sub">${esc(res.label)}</div>
+        <div class="hero-badge">${esc(res.frec)}</div>
+      </div>
+    </div>` : "";
+
+  return `
+  <div class="max-w fade-up" style="padding-bottom:4px">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="${hasAl?"result-header-amber":"result-header-blue"} result-top">
+        <div>
+          <div class="flex items-center gap-2" style="margin-bottom:6px">
+            <span class="text-gray-5">${SVG.pill}</span>
+            <span class="font-bold text-gray-8" style="font-size:18px">${esc(f.nombre)}</span>
+          </div>
+          ${catPill(f.categoria, false)}
+        </div>
+        <div class="text-right" style="flex-shrink:0;font-size:12px;color:var(--gray-500)">
+          <div class="font-semibold text-gray-6">${esc(f.via)}</div>
+          <div style="margin-top:2px;max-width:120px;line-height:1.3">${esc(f.duracion)}</div>
+        </div>
+      </div>
+      <div class="pres-section">
+        <div class="pres-label">Presentación</div>
+        ${presHtml}
+      </div>
+      ${calcHtml}
+    </div>
+
+    ${hasAl ? `
+    <div class="alert-card" style="margin-top:10px">
+      <div class="alert-header">
+        <span style="color:#d97706">${SVG.alert}</span>
+        <span class="font-bold text-amber-dark" style="font-size:13px">Alertas de Seguridad</span>
+      </div>
+      <div class="alert-list">
+        ${f.alertas.map(a=>`<div class="alert-item"><span style="flex-shrink:0;color:#d97706;margin-top:1px">›</span>${esc(a)}</div>`).join("")}
+      </div>
+    </div>` : ""}
+
+    <div class="notes-card" style="margin-top:10px">
+      <div class="notes-header">
+        <span style="color:#2563eb">${SVG.info}</span>
+        <span class="font-semibold text-gray-7" style="font-size:13px">${f.fuente==='aemps'?'Posología (extracto ficha técnica)':'Notas Clínicas'}</span>
+      </div>
+      <div class="notes-body">${esc(f.notas)}</div>
+      ${f.fuente==='aemps' && f.urlFicha ? `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb">
+        <a href="${esc(f.urlFicha)}" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#2563eb;text-decoration:none">
+          <svg fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Ver ficha técnica completa (PDF · AEMPS)
+        </a>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+function buildApp() {
+  return `
+    ${buildHeader()}
+    ${buildProgress()}
+    <div style="padding-bottom:48px">
+      ${buildStep1()}
+      <div style="height:12px"></div>
+      ${buildStep2()}
+      <div style="height:12px"></div>
+      ${S.especie ? buildStep3() : ""}
+      <div style="height:12px"></div>
+      <div id="result-area">${S.drug && S.especie ? buildResult() : ""}</div>
+      <p class="disclaimer">⚕️ Herramienta orientativa. Las dosis deben ser confirmadas por un veterinario titulado.<br>No sustituye al criterio clínico ni a la ficha técnica del medicamento.</p>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTUALIZACIONES PARCIALES
+══════════════════════════════════════════════════════════════ */
+function updatePesoDisplay() {
+  const sl = document.getElementById("peso-slider");
+  if (sl) { sl.value = S.peso; sl.style.background = buildSliderBg(); }
+  const ni = document.getElementById("num-peso");
+  if (ni && document.activeElement !== ni) ni.value = S.peso;
+  const hp = document.getElementById("header-peso");
+  if (hp) hp.textContent = S.peso + " kg";
+  document.querySelectorAll("[data-qp]").forEach(b => {
+    const p = parseFloat(b.dataset.qp);
+    b.className = "quick-btn" + (p === S.peso ? " active" : "");
+  });
+  if (S.drug && S.pres) {
+    const ra = document.getElementById("result-area");
+    if (ra) ra.innerHTML = buildResult();
+  }
+}
+
+function updateDrugListOnly() {
+  const dl = document.getElementById("drug-list");
+  if (dl) dl.innerHTML = buildDrugList();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EVENT HANDLERS
+══════════════════════════════════════════════════════════════ */
+function esc(s) {
+  return String(s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+function renderAll() {
+  document.getElementById("app").innerHTML = buildApp();
+}
+
+window.doEspecie = sp => {
+  S.especie = sp; S.drug = null; S.pres = null; S.query = "";
+  renderAll();
+};
+
+window.doSlider    = v  => { S.peso = parseFloat(v); updatePesoDisplay(); };
+window.doSliderEnd = v  => { S.peso = parseFloat(v); updatePesoDisplay(); };
+window.doNumPeso   = v  => {
+  const n = parseFloat(v);
+  if (!isNaN(n) && n >= 0.1 && n <= 80) { S.peso = n; updatePesoDisplay(); }
+};
+window.doQuickPeso = p => { S.peso = p; renderAll(); };
+
+window.doSearch = v => {
+  S.query = v.toLowerCase();
+  updateDrugListOnly();
+  const wrap = document.querySelector(".search-wrap");
+  if (wrap) {
+    let clr = wrap.querySelector(".search-clear");
+    if (v && !clr) {
+      clr = document.createElement("button");
+      clr.className = "search-clear"; clr.textContent = "×";
+      clr.onclick = () => window.doClearSearch();
+      wrap.appendChild(clr);
+    } else if (!v && clr) { clr.remove(); }
+  }
+};
+
+window.doClearSearch = () => {
+  S.query = "";
+  const inp = document.getElementById("search-input");
+  if (inp) inp.value = "";
+  updateDrugListOnly();
+  const clr = document.querySelector(".search-clear");
+  if (clr) clr.remove();
+};
+
+window.doDrug = id => {
+  const raw = getAllFarmacos().find(x => String(x.id) === String(id));
+  if (!raw) return;
+  const f = applyCustomDose(raw);
+  S.drug = f; S.pres = f.presentaciones[0];
+  updateDrugListOnly();
+  const ra = document.getElementById("result-area");
+  if (ra) ra.innerHTML = buildResult();
+  setTimeout(() => ra && ra.scrollIntoView({behavior:"smooth", block:"start"}), 80);
+};
+
+window.doPres = pid => {
+  if (!S.drug) return;
+  S.pres = S.drug.presentaciones.find(p => p.id === pid) || S.pres;
+  const ra = document.getElementById("result-area");
+  if (ra) ra.innerHTML = buildResult();
+};
+
+/* ═══════════════════════════════════════════════════════════
+   SUPABASE — dosis personalizadas
+══════════════════════════════════════════════════════════════ */
+let SB_STATE  = 'idle';    // 'online' | 'local' | 'idle'
+let sbClient  = null;
+let customDosesMap = {};   // medicamento_id → row de dosis_personalizadas
+
+async function initSupabaseCalc() {
+  if (typeof SUPABASE_CONFIGURED === 'undefined' || !SUPABASE_CONFIGURED) {
+    SB_STATE = 'local'; renderAll(); return;
+  }
+  try {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { error } = await sbClient.from('dosis_personalizadas').select('medicamento_id', { count: 'exact', head: true });
+    if (error) throw error;
+    SB_STATE = 'online';
+    await loadCustomDoses();
+  } catch {
+    SB_STATE = 'local'; sbClient = null;
+  }
+  renderAll();
+}
+
+async function loadCustomDoses() {
+  if (!sbClient) return;
+  const { data, error } = await sbClient.from('dosis_personalizadas').select('*');
+  if (error || !data) return;
+  customDosesMap = {};
+  data.forEach(r => { customDosesMap[r.medicamento_id] = r; });
+}
+
+/* Aplica la dosis personalizada (si "priorizar" está activo) sobre un fármaco */
+function applyCustomDose(f) {
+  const c = customDosesMap[f.id] || customDosesMap[String(f.id)];
+  if (!c) return f;
+  const out = { ...f, dosis: { ...f.dosis } };
+  if (c.perro_priorizar && c.perro_dosis) {
+    out.dosis.perro = { min: parseFloat(c.perro_dosis), max: parseFloat(c.perro_dosis), unidad: c.perro_unidad || 'mg/kg' };
+    if (c.perro_concentracion) {
+      const pres = { id:'custom_p', label:`Personalizado (${c.perro_concentracion} ${c.perro_conc_unidad||'mg/ml'})`,
+                     mg_unidad: parseFloat(c.perro_concentracion), unidad: (c.perro_conc_unidad||'mg/ml').includes('/ml')?'ml':'comprimido' };
+      out.presentaciones = [pres, ...(f.presentaciones||[])];
+    }
+  }
+  if (c.gato_priorizar && c.gato_dosis) {
+    out.dosis.gato = { min: parseFloat(c.gato_dosis), max: parseFloat(c.gato_dosis), unidad: c.gato_unidad || 'mg/kg' };
+  }
+  if (c.notas) out.notas = `📋 Nota del veterinario: ${c.notas}\n\n${f.notas||''}`;
+  return out;
+}
+
+/* ── Init ── */
+renderAll();
+loadAEMPS();
+initSupabaseCalc();
+
+/* ═══════════════════════════════════════════════════════════
+   PWA — Service Worker + Install prompt + Offline
+══════════════════════════════════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(err => console.warn('SW no registrado:', err));
+  });
+}
+
+/* Detectar online/offline */
+function setOnlineState() {
+  document.body.classList.toggle('offline', !navigator.onLine);
+}
+window.addEventListener('online',  setOnlineState);
+window.addEventListener('offline', setOnlineState);
+setOnlineState();
+
+/* Banner de instalación (beforeinstallprompt) */
+let _installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  const toast = document.getElementById('pwa-toast');
+  if (toast) toast.style.display = 'flex';
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      if (!_installPrompt) return;
+      _installPrompt.prompt();
+      const { outcome } = await _installPrompt.userChoice;
+      _installPrompt = null;
+      document.getElementById('pwa-toast').style.display = 'none';
+    });
+  }
+});
+</script>
+</body>
+</html>
